@@ -6,76 +6,234 @@ from decimal import Decimal
 
 
 class IncomeEntry(BaseModel):
-    amount: Decimal = Field(..., gt=0, description="Сумма прихода")
-    comment: str = Field(..., min_length=1, max_length=255, description="Комментарий")
+    """Запись о приходе денег в кассу"""
+    amount: Decimal = Field(
+        ...,
+        gt=0,
+        description="Сумма прихода",
+        example=500.50
+    )
+    comment: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Комментарий к приходу",
+        example="Внесение от администратора"
+    )
 
     class Config:
         json_encoders = {
             Decimal: float
+        }
+        json_schema_extra = {
+            "example": {
+                "amount": 500.50,
+                "comment": "Внесение от администратора"
+            }
         }
 
 
 class ExpenseEntry(BaseModel):
-    description: str = Field(..., min_length=1, max_length=255, description="Описание расхода")
-    amount: Decimal = Field(..., gt=0, description="Сумма расхода")
+    """Запись о расходе из кассы"""
+    description: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Описание расхода",
+        example="Покупка канцтоваров"
+    )
+    amount: Decimal = Field(
+        ...,
+        gt=0,
+        description="Сумма расхода",
+        example=125.75
+    )
 
     class Config:
         json_encoders = {
             Decimal: float
         }
+        json_schema_extra = {
+            "example": {
+                "description": "Покупка канцтоваров",
+                "amount": 125.75
+            }
+        }
 
 
 class ShiftReportCreate(BaseModel):
-    # Используем location как строку
-    location: str = Field(..., min_length=1, max_length=255, description="Название локации")
+    """Схема для создания отчета завершения смены"""
+
+    location: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Название локации",
+        example="Кафе Центральный"
+    )
     shift_type: Annotated[
         str,
         StringConstraints(pattern=r"^(morning|night)$")
-    ]
-    cashier_name: str = Field(..., min_length=1, max_length=255)
+    ] = Field(description="Тип смены", example="morning")
 
-    income_entries: List[IncomeEntry] = Field(default_factory=list, max_items=5)
-    expense_entries: List[ExpenseEntry] = Field(default_factory=list, max_items=10)
+    cashier_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="ФИО кассира",
+        example="Иванов Иван Иванович"
+    )
 
-    total_revenue: Decimal = Field(..., ge=0)
-    returns: Decimal = Field(default=0, ge=0)
-    acquiring: Decimal = Field(default=0, ge=0)
-    qr_code: Decimal = Field(default=0, ge=0)
-    online_app: Decimal = Field(default=0, ge=0)
-    yandex_food: Decimal = Field(default=0, ge=0)
+    income_entries: List[IncomeEntry] = Field(
+        default_factory=list,
+        max_items=5,
+        description="Список приходов денег (максимум 5)"
+    )
+    expense_entries: List[ExpenseEntry] = Field(
+        default_factory=list,
+        max_items=10,
+        description="Список расходов денег (максимум 10)"
+    )
 
-    fact_cash: Decimal = Field(..., ge=0, description="Фактическая сумма наличных")
-    # УБРАНО поле photo - оно передается отдельно в роутере
+    total_revenue: Decimal = Field(
+        ...,
+        ge=0,
+        description="Общая выручка из системы",
+        example=15000.50
+    )
+    returns: Decimal = Field(
+        default=0,
+        ge=0,
+        description="Сумма возвратов",
+        example=200.00
+    )
+    acquiring: Decimal = Field(
+        default=0,
+        ge=0,
+        description="Эквайринг (оплата картами)",
+        example=5000.00
+    )
+    qr_code: Decimal = Field(
+        default=0,
+        ge=0,
+        description="Оплата по QR коду",
+        example=1500.00
+    )
+    online_app: Decimal = Field(
+        default=0,
+        ge=0,
+        description="Оплата через онлайн приложение",
+        example=2000.00
+    )
+    yandex_food: Decimal = Field(
+        default=0,
+        ge=0,
+        description="Оплата через Яндекс Еда",
+        example=1200.00
+    )
+
+    fact_cash: Decimal = Field(
+        ...,
+        ge=0,
+        description="Фактическая сумма наличных в кассе",
+        example=5100.50
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "location": "Кафе Центральный",
+                "shift_type": "morning",
+                "cashier_name": "Иванов Иван Иванович",
+                "income_entries": [
+                    {"amount": 500.50, "comment": "Внесение от администратора"},
+                    {"amount": 200.00, "comment": "Сдача с предыдущей смены"}
+                ],
+                "expense_entries": [
+                    {"description": "Покупка канцтоваров", "amount": 125.75},
+                    {"description": "Такси для курьера", "amount": 300.00}
+                ],
+                "total_revenue": 15000.50,
+                "returns": 200.00,
+                "acquiring": 5000.00,
+                "qr_code": 1500.00,
+                "online_app": 2000.00,
+                "yandex_food": 1200.00,
+                "fact_cash": 5100.50
+            }
+        }
 
 
 class ShiftReportResponse(BaseModel):
-    id: int
-    location: str
-    shift_type: str
-    date: datetime
-    cashier_name: str
+    """Ответ с данными созданного отчета смены"""
 
-    total_income: Decimal
-    total_expenses: Decimal
-    total_acquiring: Decimal
-    calculated_amount: Decimal
-    surplus_shortage: Decimal
-    fact_cash: Decimal
+    id: int = Field(description="Уникальный идентификатор отчета")
+    location: str = Field(description="Название локации")
+    shift_type: str = Field(description="Тип смены")
+    date: datetime = Field(description="Дата и время создания отчета")
+    cashier_name: str = Field(description="ФИО кассира")
 
-    total_revenue: int
-    returns: int
-    acquiring: int
-    qr_code: int
-    online_app: int
-    yandex_food: int
+    # Расчетные поля
+    total_income: Decimal = Field(description="Общая сумма приходов")
+    total_expenses: Decimal = Field(description="Общая сумма расходов")
+    total_acquiring: Decimal = Field(description="Общая сумма безналичных платежей")
+    calculated_amount: Decimal = Field(description="Расчетная сумма наличных")
+    surplus_shortage: Decimal = Field(description="Излишек (+) / недостача (-)")
+    fact_cash: Decimal = Field(description="Фактическая сумма наличных")
 
-    # Только JSON поля из базы данных
-    income_entries: List[Dict[str, Any]] = []
-    expense_entries: List[Dict[str, Any]] = []
+    # Данные из системы
+    total_revenue: int = Field(description="Общая выручка")
+    returns: int = Field(description="Возвраты")
+    acquiring: int = Field(description="Эквайринг")
+    qr_code: int = Field(description="QR код")
+    online_app: int = Field(description="Онлайн приложение")
+    yandex_food: int = Field(description="Яндекс Еда")
 
-    photo_path: str
-    status: str
-    created_at: datetime
+    # JSON поля из базы данных
+    income_entries: List[Dict[str, Any]] = Field(
+        default=[],
+        description="Список приходов"
+    )
+    expense_entries: List[Dict[str, Any]] = Field(
+        default=[],
+        description="Список расходов"
+    )
+
+    photo_path: str = Field(description="Путь к фото отчета")
+    status: str = Field(description="Статус отчета")
+    created_at: datetime = Field(description="Время создания")
 
     class Config:
         from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "location": "Кафе Центральный",
+                "shift_type": "morning",
+                "date": "2025-05-28T10:30:00Z",
+                "cashier_name": "Иванов Иван Иванович",
+                "total_income": 700.50,
+                "total_expenses": 425.75,
+                "total_acquiring": 9700.00,
+                "calculated_amount": 5574.75,
+                "surplus_shortage": -474.25,
+                "fact_cash": 5100.50,
+                "total_revenue": 15000,
+                "returns": 200,
+                "acquiring": 5000,
+                "qr_code": 1500,
+                "online_app": 2000,
+                "yandex_food": 1200,
+                "income_entries": [
+                    {"amount": 500.5, "comment": "Внесение от администратора"},
+                    {"amount": 200.0, "comment": "Сдача с предыдущей смены"}
+                ],
+                "expense_entries": [
+                    {"description": "Покупка канцтоваров", "amount": 125.75},
+                    {"description": "Такси для курьера", "amount": 300.0}
+                ],
+                "photo_path": "./uploads/shift_reports/uuid-filename.jpg",
+                "status": "draft",
+                "created_at": "2025-05-28T10:30:00Z"
+            }
+        }

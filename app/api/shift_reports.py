@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Optional, List
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ShiftReportCreate, ShiftReportResponse, IncomeEntry, ExpenseEntry
@@ -13,52 +14,127 @@ shift_report_crud = ShiftReportCRUD()
 @router.post(
     "/create",
     response_model=ShiftReportResponse,
-    status_code=status.HTTP_201_CREATED)
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать отчет завершения смены",
+    description="""
+    Создает новый отчет завершения смены с автоматическими расчетами сверки кассы.
+
+    **Формула расчета:**
+    `Расчетная сумма = Выручка - Возвраты + Приходы - Расходы - Эквайринг`
+    """,
+)
 async def create_shift_report(
-    # Основные поля
-    location: str = Form(...),
-    shift_type: str = Form(..., regex="^(morning|night)$"),
-    cashier_name: str = Form(...),
+        # Основные поля
+        location: str = Form(..., description="Название локации", example="Кафе Центральный"),
+        shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
+        cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
 
-    # Финансовые данные
-    total_revenue: Decimal = Form(...),
-    returns: Decimal = Form(default=0),
-    acquiring: Decimal = Form(default=0),
-    qr_code: Decimal = Form(default=0),
-    online_app: Decimal = Form(default=0),
-    yandex_food: Decimal = Form(default=0),
-    fact_cash: Decimal = Form(...),
+        # Финансовые данные
+        total_revenue: Decimal = Form(..., description="Общая выручка", example=15000.50, ge=0),
+        returns: Decimal = Form(default=0, description="Возвраты", example=200.00, ge=0),
+        acquiring: Decimal = Form(default=0, description="Эквайринг", example=5000.00, ge=0),
+        qr_code: Decimal = Form(default=0, description="QR код", example=1500.00, ge=0),
+        online_app: Decimal = Form(default=0, description="Онлайн приложение", example=2000.00, ge=0),
+        yandex_food: Decimal = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
+        fact_cash: Decimal = Form(..., description="Фактическая наличность", example=5100.50, ge=0),
 
-    # Приходы (опционально)
-    income_amounts: Optional[List[Decimal]] = Form(default=None),
-    income_comments: Optional[List[str]] = Form(default=None),
+        # JSON поля
+        income_entries_json: Optional[str] = Form(
+            default=None,
+            description='JSON приходов. Пример: [{"amount": 500.50, "comment": "Описание"}]',
+            example='[{"amount": 500.50, "comment": "Внесение от администратора"}]'
+        ),
+        expense_entries_json: Optional[str] = Form(
+            default=None,
+            description='JSON расходов. Пример: [{"description": "Описание", "amount": 125.75}]',
+            example='[{"description": "Покупка канцтоваров", "amount": 125.75}]'
+        ),
 
-    # Расходы (опционально)
-    expense_descriptions: Optional[List[str]] = Form(default=None),
-    expense_amounts: Optional[List[Decimal]] = Form(default=None),
-
-    # Фото
-    photo: UploadFile = File(...),
-
-    db: AsyncSession = Depends(get_db)
+        # Фото
+        photo: UploadFile = File(..., description="Фото кассового отчета"),
+        db: AsyncSession = Depends(get_db)
 ):
-    """
-    Создать отчет завершения смены.
-
-    Все данные передаются через Form fields + файл.
-    """
     try:
-        # Собираем приходы
+        # Парсим приходы
         income_entries = []
-        if income_amounts and income_comments:
-            for amount, comment in zip(income_amounts, income_comments):
-                income_entries.append(IncomeEntry(amount=amount, comment=comment))
+        if income_entries_json:
+            try:
+                income_data = json.loads(income_entries_json)
+                if not isinstance(income_data, list):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="income_entries_json должен быть массивом JSON"
+                    )
 
-        # Собираем расходы
+                for item in income_data:
+                    if not isinstance(item, dict) or 'amount' not in item or 'comment' not in item:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Каждый элемент income_entries должен содержать 'amount' и 'comment'"
+                        )
+
+                    income_entries.append(IncomeEntry(
+                        amount=Decimal(str(item['amount'])),
+                        comment=str(item['comment'])
+                    ))
+
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Некорректный JSON в income_entries_json"
+                )
+            except (ValueError, TypeError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ошибка валидации приходов: {str(e)}"
+                )
+
+        # Парсим расходы
         expense_entries = []
-        if expense_descriptions and expense_amounts:
-            for description, amount in zip(expense_descriptions, expense_amounts):
-                expense_entries.append(ExpenseEntry(description=description, amount=amount))
+        if expense_entries_json:
+            try:
+                expense_data = json.loads(expense_entries_json)
+                if not isinstance(expense_data, list):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="expense_entries_json должен быть массивом JSON"
+                    )
+
+                for item in expense_data:
+                    if not isinstance(item, dict) or 'description' not in item or 'amount' not in item:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Каждый элемент expense_entries должен содержать 'description' и 'amount'"
+                        )
+
+                    expense_entries.append(ExpenseEntry(
+                        description=str(item['description']),
+                        amount=Decimal(str(item['amount']))
+                    ))
+
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Некорректный JSON в expense_entries_json"
+                )
+            except (ValueError, TypeError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ошибка валидации расходов: {str(e)}"
+                )
+
+        # Проверяем лимиты
+        if len(income_entries) > 5:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Максимум 5 записей приходов"
+            )
+
+        if len(expense_entries) > 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Максимум 10 записей расходов"
+            )
 
         # Создаем объект данных
         report_data = ShiftReportCreate(
@@ -80,49 +156,18 @@ async def create_shift_report(
         report = await shift_report_crud.create_shift_report(db, report_data, photo)
         return report
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Ошибка создания отчета: {str(e)}"
         )
 
+
 @router.post("/{report_id}/send", response_model=dict)
 async def send_shift_report(
         report_id: int,
         db: AsyncSession = Depends(get_db)
 ):
-    # """
-    # Отправить отчет завершения смены в Telegram.
-    #
-    # - Меняет статус на 'sent'
-    # - Отправляет форматированный отчет в Telegram чат
-    # """
-    # # Получаем отчет
-    # report = await shift_report_crud.get_shift_report(db, report_id)
-    # if not report:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND,
-    #         detail="Отчет не найден"
-    #     )
-    #
-    # if report.status == "sent":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Отчет уже отправлен"
-    #     )
-    #
-    # try:
-    #     # TODO: Здесь будет интеграция с Telegram
-    #     # await telegram_service.send_shift_report(report)
-    #
-    #     # Обновляем статус
-    #     await shift_report_crud.update_status(db, report_id, "sent")
-    #
-    #     return {"message": "Отчет успешно отправлен в Telegram", "report_id": report_id}
-    #
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail=f"Ошибка отправки отчета: {str(e)}"
-    #     )
-    ...
+    return {"message": "Функция в разработке", "report_id": report_id}
