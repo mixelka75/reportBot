@@ -152,16 +152,44 @@ async def create_shift_report(
             fact_cash=fact_cash
         )
 
-        # Создаем отчет
-        report = await shift_report_crud.create_shift_report(db, report_data, photo)
-        return report
+        # Создаем отчет (Telegram ошибки не должны блокировать создание)
+        try:
+            report = await shift_report_crud.create_shift_report(db, report_data, photo)
+            return report
+        except Exception as crud_error:
+            # Проверяем, не связана ли ошибка с базой данных
+            error_str = str(crud_error).lower()
+            if any(db_keyword in error_str for db_keyword in ['database', 'connection', 'sql', 'table', 'column']):
+                # Это ошибка базы данных - пробрасываем
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Ошибка базы данных: {str(crud_error)}"
+                )
+            elif 'name resolution' in error_str or 'network' in error_str or 'connection' in error_str:
+                # Это сетевая ошибка (скорее всего Telegram) - не блокируем создание отчета
+                print(f"⚠️  Сетевая ошибка при создании отчета: {str(crud_error)}")
+                # Пробуем создать отчет без Telegram интеграции
+                try:
+                    report = await shift_report_crud.create_shift_report_without_telegram(db, report_data, photo)
+                    return report
+                except Exception as db_error:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Ошибка создания отчета: {str(db_error)}"
+                    )
+            else:
+                # Неизвестная ошибка
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ошибка создания отчета: {str(crud_error)}"
+                )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка создания отчета: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Неожиданная ошибка: {str(e)}"
         )
 
 

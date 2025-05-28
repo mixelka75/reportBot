@@ -1,8 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ReportOnGoodsCreate
 from app.models import ReportOnGoods
+from app.services import TelegramService
+
 
 class ReportOnGoodCRUD:
+    def __init__(self):
+        self.telegram_service = TelegramService()
+
     async def create_report_on_good(
             self,
             db: AsyncSession,
@@ -39,4 +44,20 @@ class ReportOnGoodCRUD:
         db.add(db_report)
         await db.commit()
         await db.refresh(db_report)
+
+        # Отправляем в Telegram
+        try:
+            report_dict = {
+                'location': db_report.location,
+                'date': db_report.date,
+                'kuxnya': db_report.kuxnya,
+                'bar': db_report.bar,
+                'upakovki_xoz': db_report.upakovki_xoz,
+            }
+
+            await self.telegram_service.send_goods_report(report_dict)
+
+        except Exception as e:
+            print(f"Ошибка отправки отчета товаров в Telegram: {str(e)}")
+
         return db_report
