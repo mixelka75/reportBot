@@ -191,3 +191,4 @@ keys/
 pomodoro.sqlite
 .idea
 *.env
+uploads
