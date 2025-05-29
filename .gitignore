@@ -190,3 +190,4 @@ logs
 keys/
 pomodoro.sqlite
 .idea
+*.env
