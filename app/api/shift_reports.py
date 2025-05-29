@@ -1,11 +1,13 @@
 from decimal import Decimal
 from typing import Optional, List
 import json
+import decimal
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas import ShiftReportCreate, ShiftReportResponse, IncomeEntry, ExpenseEntry
-from app.crud import ShiftReportCRUD
-from app.core import get_db
+from sqlalchemy.exc import SQLAlchemyError
+from ..schemas import ShiftReportCreate, ShiftReportResponse, IncomeEntry, ExpenseEntry
+from ..crud import ShiftReportCRUD
+from ..core import get_db
 
 router = APIRouter()
 shift_report_crud = ShiftReportCRUD()
@@ -21,6 +23,8 @@ shift_report_crud = ShiftReportCRUD()
 
     **Формула расчета:**
     `Расчетная сумма = Выручка - Возвраты + Приходы - Расходы - Эквайринг`
+
+    **Примечание:** Отправка в Telegram происходит асинхронно и не влияет на создание отчета.
     """,
 )
 async def create_shift_report(
@@ -54,87 +58,23 @@ async def create_shift_report(
         photo: UploadFile = File(..., description="Фото кассового отчета"),
         db: AsyncSession = Depends(get_db)
 ):
+    """
+    Создает отчет завершения смены.
+
+    Процесс:
+    1. Валидация входных данных
+    2. Создание записи в базе данных
+    3. Асинхронная отправка в Telegram (в фоне)
+
+    Если есть проблемы с Telegram, отчет все равно будет создан в БД.
+    """
     try:
-        # Парсим приходы
-        income_entries = []
-        if income_entries_json:
-            try:
-                income_data = json.loads(income_entries_json)
-                if not isinstance(income_data, list):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="income_entries_json должен быть массивом JSON"
-                    )
-
-                for item in income_data:
-                    if not isinstance(item, dict) or 'amount' not in item or 'comment' not in item:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Каждый элемент income_entries должен содержать 'amount' и 'comment'"
-                        )
-
-                    income_entries.append(IncomeEntry(
-                        amount=Decimal(str(item['amount'])),
-                        comment=str(item['comment'])
-                    ))
-
-            except json.JSONDecodeError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Некорректный JSON в income_entries_json"
-                )
-            except (ValueError, TypeError) as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Ошибка валидации приходов: {str(e)}"
-                )
-
-        # Парсим расходы
-        expense_entries = []
-        if expense_entries_json:
-            try:
-                expense_data = json.loads(expense_entries_json)
-                if not isinstance(expense_data, list):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="expense_entries_json должен быть массивом JSON"
-                    )
-
-                for item in expense_data:
-                    if not isinstance(item, dict) or 'description' not in item or 'amount' not in item:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Каждый элемент expense_entries должен содержать 'description' и 'amount'"
-                        )
-
-                    expense_entries.append(ExpenseEntry(
-                        description=str(item['description']),
-                        amount=Decimal(str(item['amount']))
-                    ))
-
-            except json.JSONDecodeError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Некорректный JSON в expense_entries_json"
-                )
-            except (ValueError, TypeError) as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Ошибка валидации расходов: {str(e)}"
-                )
+        # Парсим и валидируем входные данные
+        income_entries = _parse_income_entries(income_entries_json)
+        expense_entries = _parse_expense_entries(expense_entries_json)
 
         # Проверяем лимиты
-        if len(income_entries) > 5:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Максимум 5 записей приходов"
-            )
-
-        if len(expense_entries) > 10:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Максимум 10 записей расходов"
-            )
+        _validate_entries_limits(income_entries, expense_entries)
 
         # Создаем объект данных
         report_data = ShiftReportCreate(
@@ -152,44 +92,142 @@ async def create_shift_report(
             fact_cash=fact_cash
         )
 
-        # Создаем отчет (Telegram ошибки не должны блокировать создание)
-        try:
-            report = await shift_report_crud.create_shift_report(db, report_data, photo)
-            return report
-        except Exception as crud_error:
-            # Проверяем, не связана ли ошибка с базой данных
-            error_str = str(crud_error).lower()
-            if any(db_keyword in error_str for db_keyword in ['database', 'connection', 'sql', 'table', 'column']):
-                # Это ошибка базы данных - пробрасываем
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Ошибка базы данных: {str(crud_error)}"
-                )
-            elif 'name resolution' in error_str or 'network' in error_str or 'connection' in error_str:
-                # Это сетевая ошибка (скорее всего Telegram) - не блокируем создание отчета
-                print(f"⚠️  Сетевая ошибка при создании отчета: {str(crud_error)}")
-                # Пробуем создать отчет без Telegram интеграции
-                try:
-                    report = await shift_report_crud.create_shift_report_without_telegram(db, report_data, photo)
-                    return report
-                except Exception as db_error:
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Ошибка создания отчета: {str(db_error)}"
-                    )
-            else:
-                # Неизвестная ошибка
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Ошибка создания отчета: {str(crud_error)}"
-                )
+        # Создаем отчет в базе данных
+        report = await shift_report_crud.create_shift_report(db, report_data, photo)
+
+        return report
 
     except HTTPException:
+        # HTTP исключения пробрасываем как есть (они уже правильно сформированы)
         raise
-    except Exception as e:
+    except SQLAlchemyError as db_error:
+        # Ошибки базы данных
+        print(f"❌ Ошибка БД при создании отчета: {str(db_error)}")
+        try:
+            await db.rollback()
+        except:
+            pass  # Игнорируем ошибки rollback
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Неожиданная ошибка: {str(e)}"
+            detail=f"Ошибка базы данных при создании отчета"
+        )
+    except Exception as e:
+        # Все остальные ошибки
+        print(f"❌ Неожиданная ошибка при создании отчета: {str(e)}")
+        try:
+            await db.rollback()
+        except:
+            pass  # Игнорируем ошибки rollback
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Неожиданная ошибка при создании отчета"
+        )
+
+
+def _parse_income_entries(income_entries_json: Optional[str]) -> List[IncomeEntry]:
+    """Парсит и валидирует записи приходов."""
+    income_entries = []
+    if income_entries_json:
+        try:
+            income_data = json.loads(income_entries_json)
+            if not isinstance(income_data, list):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="income_entries_json должен быть массивом JSON"
+                )
+
+            for item in income_data:
+                if not isinstance(item, dict) or 'amount' not in item or 'comment' not in item:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Каждый элемент income_entries должен содержать 'amount' и 'comment'"
+                    )
+
+                try:
+                    amount = Decimal(str(item['amount']))
+                    if amount <= 0:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Сумма прихода должна быть положительной"
+                        )
+
+                    income_entries.append(IncomeEntry(
+                        amount=amount,
+                        comment=str(item['comment'])
+                    ))
+                except (ValueError, TypeError, decimal.InvalidOperation):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Некорректная сумма в приходе: {item.get('amount')}"
+                    )
+
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный JSON в income_entries_json"
+            )
+
+    return income_entries
+
+
+def _parse_expense_entries(expense_entries_json: Optional[str]) -> List[ExpenseEntry]:
+    """Парсит и валидирует записи расходов."""
+    expense_entries = []
+    if expense_entries_json:
+        try:
+            expense_data = json.loads(expense_entries_json)
+            if not isinstance(expense_data, list):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="expense_entries_json должен быть массивом JSON"
+                )
+
+            for item in expense_data:
+                if not isinstance(item, dict) or 'description' not in item or 'amount' not in item:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Каждый элемент expense_entries должен содержать 'description' и 'amount'"
+                    )
+
+                try:
+                    amount = Decimal(str(item['amount']))
+                    if amount <= 0:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Сумма расхода должна быть положительной"
+                        )
+
+                    expense_entries.append(ExpenseEntry(
+                        description=str(item['description']),
+                        amount=amount
+                    ))
+                except (ValueError, TypeError, decimal.InvalidOperation):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Некорректная сумма в расходе: {item.get('amount')}"
+                    )
+
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный JSON в expense_entries_json"
+            )
+
+    return expense_entries
+
+
+def _validate_entries_limits(income_entries: List[IncomeEntry], expense_entries: List[ExpenseEntry]):
+    """Проверяет лимиты на количество записей."""
+    if len(income_entries) > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Максимум 5 записей приходов"
+        )
+
+    if len(expense_entries) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Максимум 10 записей расходов"
         )
 
 
@@ -198,4 +236,5 @@ async def send_shift_report(
         report_id: int,
         db: AsyncSession = Depends(get_db)
 ):
+    """Повторная отправка отчета в Telegram."""
     return {"message": "Функция в разработке", "report_id": report_id}

@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -13,7 +12,6 @@ ENV POETRY_NO_INTERACTION=1 \
 
 WORKDIR /app
 
-
 COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --only=main --no-root
@@ -24,9 +22,23 @@ ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Создаем скрипт запуска
+COPY <<EOF /app/start.sh
+#!/bin/bash
+set -e
 
+echo "Ожидание базы данных..."
+sleep 5
 
+echo "Запуск миграций..."
+cd /app/app
+poetry run alembic upgrade head
 
+echo "Запуск приложения..."
+cd /app
+poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+EOF
 
+RUN chmod +x /app/start.sh
 
+CMD ["/app/start.sh"]
