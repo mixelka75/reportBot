@@ -32,7 +32,7 @@ class TelegramService:
         location_topics = {
             "Гагарина 48/1": settings.GAGARINA_48_TOPIC_ID,
             "Абдулхамида Исмаилова 51": settings.ABDULHAMID_51_TOPIC_ID,
-            # Добавьте другие локации
+            "Гайдара Гаджиева 7Б": settings.GAIDAR_7B_TOPIC_ID,
         }
 
         # Пробуем найти точное совпадение
@@ -337,3 +337,60 @@ class TelegramService:
         except Exception as e:
             print(f"Неожиданная ошибка при отправке фото в Telegram: {str(e)}")
             return False
+
+    async def send_writeoff_transfer_report(self, report_data: Dict[str, Any]) -> bool:
+        """Отправляет акт списания/перемещения в Telegram"""
+        if not self.enabled:
+            print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
+            return False
+
+        try:
+            topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
+
+            # Форматируем сообщение
+            message = self._format_writeoff_transfer_message(report_data)
+
+            # Отправляем сообщение
+            success = await self._send_message(message, topic_id)
+
+            if success:
+                print(f"✅ Акт списания/перемещения отправлен в Telegram для локации: {report_data.get('location')}")
+            else:
+                print(
+                    f"⚠️  Акт списания/перемещения создан, но не отправлен в Telegram для локации: {report_data.get('location')}")
+
+            return success
+
+        except Exception as e:
+            print(f"⚠️  Акт списания/перемещения создан, но ошибка отправки в Telegram: {str(e)}")
+            return False
+
+    def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
+        """Форматирует сообщение акта списания/перемещения"""
+        message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
+
+📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+📆 <b>Дата:</b> {data.get('report_date', '').strftime('%d.%m.%Y') if data.get('report_date') else 'Не указано'}
+
+"""
+
+        # Списания
+        writeoffs = data.get('writeoffs', [])
+        if writeoffs:
+            message += "🗑 <b>СПИСАНИЕ:</b>\n"
+            for item in writeoffs:
+                weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
+                int, float)) else f"{item.get('weight', 0)} шт"
+                message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
+            message += "\n"
+
+        # Перемещения
+        transfers = data.get('transfers', [])
+        if transfers:
+            message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
+            for item in transfers:
+                weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
+                int, float)) else f"{item.get('weight', 0)} шт"
+                message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
+
+        return message

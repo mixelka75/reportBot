@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # ID тем (подгрупп) в Telegram чате
     GAGARINA_48_TOPIC_ID: int = 0
     ABDULHAMID_51_TOPIC_ID: int = 0
+    GAIDAR_7B_TOPIC_ID: int = 0
 
     @property
     def db_url(self) -> str:
