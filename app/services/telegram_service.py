@@ -31,7 +31,7 @@ class TelegramService:
         # Маппинг локаций на темы
         location_topics = {
             "Гагарина 48/1": settings.GAGARINA_48_TOPIC_ID,
-            "Абдулхамида Исмаилова 51": settings.ABDULHAMID_51_TOPIC_ID,
+            "Абдулхакима Исмаилова 51": settings.ABDULHAMID_51_TOPIC_ID,
             "Гайдара Гаджиева 7Б": settings.GAIDAR_7B_TOPIC_ID,
         }
 
