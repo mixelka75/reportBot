@@ -123,7 +123,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+backend/.venv
 env/
 venv/
 ENV/
@@ -192,3 +192,4 @@ pomodoro.sqlite
 .idea
 *.env
 uploads
+.venv
