@@ -1,11 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Package, FileText, RotateCcw, Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Package, FileText, RotateCcw, Plus, CheckCircle, XCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// Хук для сохранения и восстановления фокуса
+const useFocusPreservation = () => {
+  const focusInfoRef = useRef(null);
+
+  const saveFocus = useCallback(() => {
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+      focusInfoRef.current = {
+        element: activeElement,
+        selectionStart: activeElement.selectionStart,
+        selectionEnd: activeElement.selectionEnd,
+        name: activeElement.name,
+        id: activeElement.id,
+        className: activeElement.className
+      };
+    }
+  }, []);
+
+  const restoreFocus = useCallback(() => {
+    if (focusInfoRef.current) {
+      const { element, selectionStart, selectionEnd, name, id, className } = focusInfoRef.current;
+
+      let targetElement = element;
+      if (!document.contains(element)) {
+        if (id) targetElement = document.getElementById(id);
+        else if (name) targetElement = document.querySelector(`[name="${name}"]`);
+        else if (className) targetElement = document.querySelector(`.${className.split(' ')[0]}`);
+      }
+
+      if (targetElement && document.contains(targetElement)) {
+        setTimeout(() => {
+          targetElement.focus();
+          if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+            targetElement.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }, 0);
+      }
+    }
+  }, []);
+
+  return { saveFocus, restoreFocus };
+};
+
+// Хук для автосохранения с сохранением фокуса
+const useAutoSave = (data, saveFunction, delay = 300) => {
+  const timeoutRef = useRef(null);
+  const { saveFocus, restoreFocus } = useFocusPreservation();
+
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      saveFocus();
+      saveFunction(data);
+      restoreFocus();
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [data, saveFunction, delay, saveFocus, restoreFocus]);
+};
+
+// Мемоизированный компонент для инпута
+const MemoizedInput = React.memo(({
+  type = "text",
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  className,
+  id,
+  name,
+  accept,
+  hasError = false,
+  ...props
+}) => {
+  const handleChange = useCallback((e) => {
+    onChange(e);
+  }, [onChange]);
+
+  const inputClassName = `${className} ${hasError ? 'border-red-400 bg-red-50' : ''}`;
+
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={inputClassName}
+      id={id}
+      name={name}
+      accept={accept}
+      {...props}
+    />
+  );
+});
+
+// Компонент для показа ошибок валидации на форме
+const ValidationAlert = React.memo(({ errors }) => {
+  if (!errors || Object.keys(errors).length === 0) return null;
+
+  return (
+    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertCircle size={16} className="text-red-500" />
+        <h4 className="text-red-800 font-semibold">Ошибка валидации</h4>
+      </div>
+      <ul className="text-red-700 text-sm space-y-1">
+        {Object.values(errors).map((error, index) => (
+          <li key={index}>• {error}</li>
+        ))}
+      </ul>
+    </div>
+  );
+});
 
 const TelegramWebApp = () => {
   const [currentForm, setCurrentForm] = useState('menu');
   const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [drafts, setDrafts] = useState([]);
+  const [currentDraftId, setCurrentDraftId] = useState(null);
 
   const locations = [
     'Гагарина 48/1',
@@ -13,8 +139,237 @@ const TelegramWebApp = () => {
     'Гайдара Гаджиева 7Б'
   ];
 
+  // Функции для работы с черновиками
+  const saveDraft = useCallback((formType, formData) => {
+    const draftId = currentDraftId || Date.now().toString();
+    const draft = {
+      id: draftId,
+      type: formType,
+      data: formData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const existingDrafts = JSON.parse(localStorage.getItem('reportDrafts') || '[]');
+    const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
+
+    if (draftIndex !== -1) {
+      existingDrafts[draftIndex] = { ...existingDrafts[draftIndex], ...draft, updatedAt: new Date().toISOString() };
+    } else {
+      existingDrafts.push(draft);
+    }
+
+    localStorage.setItem('reportDrafts', JSON.stringify(existingDrafts));
+
+    if (!currentDraftId) {
+      setCurrentDraftId(draftId);
+    }
+  }, [currentDraftId]);
+
+  const loadDrafts = useCallback(() => {
+    const savedDrafts = JSON.parse(localStorage.getItem('reportDrafts') || '[]');
+    setDrafts(savedDrafts);
+  }, []);
+
+  const deleteDraft = useCallback((draftId) => {
+    const existingDrafts = JSON.parse(localStorage.getItem('reportDrafts') || '[]');
+    const filteredDrafts = existingDrafts.filter(d => d.id !== draftId);
+    localStorage.setItem('reportDrafts', JSON.stringify(filteredDrafts));
+    setDrafts(filteredDrafts);
+  }, []);
+
+  const loadDraft = useCallback((draftId) => {
+    const savedDrafts = JSON.parse(localStorage.getItem('reportDrafts') || '[]');
+    const draft = savedDrafts.find(d => d.id === draftId);
+    if (draft) {
+      setCurrentDraftId(draftId);
+      setCurrentForm(draft.type);
+      return draft.data;
+    }
+    return null;
+  }, []);
+
+  const clearCurrentDraft = useCallback(() => {
+    if (currentDraftId) {
+      deleteDraft(currentDraftId);
+      setCurrentDraftId(null);
+    }
+  }, [currentDraftId, deleteDraft]);
+
+  // Загрузка черновиков при инициализации
+  useEffect(() => {
+    loadDrafts();
+  }, [loadDrafts]);
+
+  // Функции для уведомлений (только для успешных операций и критических ошибок)
+  const showNotification = useCallback((type, title, message) => {
+    // Показываем NotificationScreen только для успеха или критических ошибок сервера
+    if (type === 'success' || message.includes('сервер') || message.includes('Сеть')) {
+      setNotification({ type, title, message });
+    }
+  }, []);
+
+  const clearNotification = useCallback(() => {
+    setNotification(null);
+  }, []);
+
+  // Функция для показа ошибок валидации (остаемся на форме)
+  const showValidationErrors = useCallback((errors) => {
+    setValidationErrors(errors);
+    // Прокручиваем к первой ошибке
+    setTimeout(() => {
+      const firstErrorField = document.querySelector('.border-red-400');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }, []);
+
+  // Функция для обработки числового ввода
+  const handleNumberInput = useCallback((e, callback) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      callback(value);
+    }
+  }, []);
+
+  // Получение названия типа отчета
+  const getReportTypeName = useCallback((type) => {
+    const types = {
+      'cashier': 'Завершение смены',
+      'inventory': 'Инвентаризация',
+      'receiving': 'Прием товаров',
+      'writeoff': 'Списание/перемещение'
+    };
+    return types[type] || type;
+  }, []);
+
+  // Получение иконки типа отчета
+  const getReportTypeIcon = useCallback((type) => {
+    const icons = {
+      'cashier': '💰',
+      'inventory': '📦',
+      'receiving': '📥',
+      'writeoff': '📋'
+    };
+    return icons[type] || '📄';
+  }, []);
+
+  // Компонент карточки черновика
+  const DraftCard = React.memo(({ draft }) => {
+    const formatDate = useCallback((dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }, []);
+
+    const getLocationFromDraft = useCallback(() => {
+      return draft.data?.location || 'Локация не выбрана';
+    }, [draft.data?.location]);
+
+    const handleContinue = useCallback(() => {
+      loadDraft(draft.id);
+    }, [draft.id, loadDraft]);
+
+    const handleDelete = useCallback(() => {
+      deleteDraft(draft.id);
+    }, [draft.id, deleteDraft]);
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">{getReportTypeIcon(draft.type)}</div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{getReportTypeName(draft.type)}</h3>
+              <p className="text-sm text-gray-600">Черновик</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <MapPin size={14} />
+            <span>{getLocationFromDraft()}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Clock size={14} />
+            <span>Изменен: {formatDate(draft.updatedAt)}</span>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleContinue}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Edit3 size={16} />
+            Продолжить
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  });
+
+  // Компонент уведомления (только для успешных операций)
+  const NotificationScreen = () => {
+    if (!notification) return null;
+
+    const bgColor = notification.type === 'success' ? 'bg-green-50' : 'bg-red-50';
+    const borderColor = notification.type === 'success' ? 'border-green-200' : 'border-red-200';
+    const textColor = notification.type === 'success' ? 'text-green-800' : 'text-red-800';
+    const iconColor = notification.type === 'success' ? 'text-green-500' : 'text-red-500';
+
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className={`max-w-md w-full ${bgColor} ${borderColor} border rounded-xl p-6 text-center`}>
+          <div className={`mx-auto w-16 h-16 ${iconColor} mb-4 flex items-center justify-center`}>
+            {notification.type === 'success' ? (
+              <CheckCircle size={64} />
+            ) : (
+              <XCircle size={64} />
+            )}
+          </div>
+
+          <h2 className={`text-xl font-bold ${textColor} mb-2`}>
+            {notification.title}
+          </h2>
+
+          <p className={`${textColor} mb-6`}>
+            {notification.message}
+          </p>
+
+          <button
+            onClick={() => {
+              clearNotification();
+              // Удаляем черновик только при успешной отправке
+              if (notification.type === 'success') {
+                clearCurrentDraft();
+              }
+              setCurrentForm('menu');
+            }}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Вернуться в меню
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Автозаполнение даты по МСК
-  const getCurrentMSKTime = () => {
+  const getCurrentMSKTime = useCallback(() => {
     const now = new Date();
     const mskTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
     return mskTime.toLocaleString('ru-RU', {
@@ -24,14 +379,14 @@ const TelegramWebApp = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
 
   // Получение даты в формате YYYY-MM-DD
-  const getCurrentDate = () => {
+  const getCurrentDate = useCallback(() => {
     const now = new Date();
     const mskTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
     return mskTime.toISOString().split('T')[0];
-  };
+  }, []);
 
   // Инициализация Telegram WebApp
   useEffect(() => {
@@ -44,7 +399,7 @@ const TelegramWebApp = () => {
   }, []);
 
   // API Service
-  const apiService = {
+  const apiService = useMemo(() => ({
     async createShiftReport(formData) {
       console.log('🚀 Отправляем отчет смены...');
       const response = await fetch(`${API_BASE_URL}/shift-reports/create`, {
@@ -54,7 +409,7 @@ const TelegramWebApp = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        throw new Error(`Ошибка ${response.status}: ${errorData}`);
+        throw new Error(`Ошибка сервера ${response.status}: ${errorData}`);
       }
 
       return await response.json();
@@ -69,7 +424,7 @@ const TelegramWebApp = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        throw new Error(`Ошибка ${response.status}: ${errorData}`);
+        throw new Error(`Ошибка сервера ${response.status}: ${errorData}`);
       }
 
       return await response.json();
@@ -84,7 +439,7 @@ const TelegramWebApp = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        throw new Error(`Ошибка ${response.status}: ${errorData}`);
+        throw new Error(`Ошибка сервера ${response.status}: ${errorData}`);
       }
 
       return await response.json();
@@ -99,84 +454,115 @@ const TelegramWebApp = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        throw new Error(`Ошибка ${response.status}: ${errorData}`);
+        throw new Error(`Ошибка сервера ${response.status}: ${errorData}`);
       }
 
       return await response.json();
     }
-  };
+  }), []);
 
   // Main Menu Component
   const MainMenu = () => (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-400 mb-2">📊 Отчетность кассира</h1>
-          <p className="text-gray-400">Выберите тип отчета</p>
+          <h1 className="text-3xl font-bold text-blue-600 mb-2">📊 Отчетность кассира</h1>
+          <p className="text-gray-600">Выберите тип отчета</p>
         </div>
 
+        {/* Черновики */}
+        {drafts.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">📝 Черновики</h2>
+            <div className="space-y-3">
+              {drafts.map(draft => (
+                <DraftCard key={draft.id} draft={draft} />
+              ))}
+            </div>
+            <hr className="my-6 border-gray-300" />
+          </div>
+        )}
+
+        {/* Новые отчеты */}
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">➕ Создать новый отчет</h2>
         <div className="space-y-4">
           <button
-            onClick={() => setCurrentForm('cashier')}
-            className="w-full p-4 bg-gradient-to-r from-green-600 to-green-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            onClick={() => {
+              setCurrentDraftId(null);
+              setValidationErrors({});
+              setCurrentForm('cashier');
+            }}
+            className="w-full p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">💰</div>
                 <div className="text-left">
                   <h3 className="font-semibold text-lg">Я завершил смену, сдать отчёт</h3>
-                  <p className="text-green-200 text-sm">Завершение смены</p>
+                  <p className="text-green-100 text-sm">Завершение смены</p>
                 </div>
               </div>
-              <div className="text-green-200">→</div>
+              <div className="text-green-100">→</div>
             </div>
           </button>
 
           <button
-            onClick={() => setCurrentForm('inventory')}
-            className="w-full p-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            onClick={() => {
+              setCurrentDraftId(null);
+              setValidationErrors({});
+              setCurrentForm('inventory');
+            }}
+            className="w-full p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">📦</div>
                 <div className="text-left">
                   <h3 className="font-semibold text-lg">Ежедневная инвентаризация</h3>
-                  <p className="text-blue-200 text-sm">Подсчет остатков</p>
+                  <p className="text-blue-100 text-sm">Подсчет остатков</p>
                 </div>
               </div>
-              <div className="text-blue-200">→</div>
+              <div className="text-blue-100">→</div>
             </div>
           </button>
 
           <button
-            onClick={() => setCurrentForm('receiving')}
-            className="w-full p-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            onClick={() => {
+              setCurrentDraftId(null);
+              setValidationErrors({});
+              setCurrentForm('receiving');
+            }}
+            className="w-full p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">📥</div>
                 <div className="text-left">
                   <h3 className="font-semibold text-lg">Отчёт прием товара</h3>
-                  <p className="text-purple-200 text-sm">Поступления товаров</p>
+                  <p className="text-purple-100 text-sm">Поступления товаров</p>
                 </div>
               </div>
-              <div className="text-purple-200">→</div>
+              <div className="text-purple-100">→</div>
             </div>
           </button>
 
           <button
-            onClick={() => setCurrentForm('writeoff')}
-            className="w-full p-4 bg-gradient-to-r from-red-600 to-red-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            onClick={() => {
+              setCurrentDraftId(null);
+              setValidationErrors({});
+              setCurrentForm('writeoff');
+            }}
+            className="w-full p-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">📋</div>
                 <div className="text-left">
                   <h3 className="font-semibold text-lg">Акты списания/перемещения</h3>
-                  <p className="text-red-200 text-sm">Движение товаров</p>
+                  <p className="text-red-100 text-sm">Движение товаров</p>
                 </div>
               </div>
-              <div className="text-red-200">→</div>
+              <div className="text-red-100">→</div>
             </div>
           </button>
         </div>
@@ -204,7 +590,30 @@ const TelegramWebApp = () => {
       photo: null
     });
 
-    const handleInputChange = (field, value, index = null, subfield = null) => {
+    // Загружаем черновик при инициализации
+    useEffect(() => {
+      if (currentDraftId) {
+        const draftData = loadDraft(currentDraftId);
+        if (draftData) {
+          setFormData(draftData);
+        }
+      }
+    }, [currentDraftId, loadDraft]);
+
+    // Функция для автосохранения
+    const autoSaveFunction = useCallback((data) => {
+      if (data.location || data.shift || data.cashierName ||
+          data.incomes.some(i => i.amount || i.comment) ||
+          data.expenses.some(e => e.name || e.amount) ||
+          Object.values(data.iikoData).some(v => v)) {
+        saveDraft('cashier', data);
+      }
+    }, [saveDraft]);
+
+    // Автосохранение каждые 300мс с сохранением фокуса
+    useAutoSave(formData, autoSaveFunction, 300);
+
+    const handleInputChange = useCallback((field, value, index = null, subfield = null) => {
       setFormData(prev => {
         if (index !== null && subfield) {
           const newArray = [...prev[field]];
@@ -224,9 +633,18 @@ const TelegramWebApp = () => {
           return { ...prev, [field]: value };
         }
       });
-    };
 
-    const calculateTotals = () => {
+      // Очищаем ошибку валидации при изменении поля
+      if (validationErrors[field]) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    }, [validationErrors]);
+
+    const calculateTotals = useMemo(() => {
       const totalIncome = formData.incomes.reduce((sum, item) =>
         sum + (parseFloat(item.amount) || 0), 0
       );
@@ -242,17 +660,26 @@ const TelegramWebApp = () => {
       const difference = calculatedAmount - factualAmount;
 
       return { totalIncome, totalExpenses, totalIiko, calculatedAmount, difference };
-    };
+    }, [formData]);
 
-    const handleSubmit = async () => {
+    const handleSubmit = useCallback(async () => {
       // Валидация
-      if (!formData.location || !formData.shift || !formData.cashierName || !formData.photo) {
-        alert('❌ Пожалуйста, заполните все обязательные поля');
+      const errors = {};
+
+      if (!formData.location) errors.location = 'Выберите локацию';
+      if (!formData.shift) errors.shift = 'Выберите смену';
+      if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира';
+      if (!formData.photo) errors.photo = 'Добавьте фотографию кассового отчёта';
+      if (!formData.iikoData.totalRevenue || parseFloat(formData.iikoData.totalRevenue) <= 0) {
+        errors.totalRevenue = 'Введите общую выручку больше 0';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        showValidationErrors(errors);
         return;
       }
 
       setIsLoading(true);
-      console.log('🚀 Начинаем отправку отчета смены...');
 
       try {
         // Подготовка FormData для API
@@ -270,7 +697,7 @@ const TelegramWebApp = () => {
         apiFormData.append('qr_code', parseFloat(formData.iikoData.qrCode) || 0);
         apiFormData.append('online_app', parseFloat(formData.iikoData.onlineApp) || 0);
         apiFormData.append('yandex_food', parseFloat(formData.iikoData.yandexEda) || 0);
-        apiFormData.append('fact_cash', calculateTotals().calculatedAmount);
+        apiFormData.append('fact_cash', calculateTotals.calculatedAmount);
 
         // Приходы (JSON)
         const incomeEntries = formData.incomes
@@ -293,42 +720,47 @@ const TelegramWebApp = () => {
         // Фото
         apiFormData.append('photo', formData.photo);
 
-        console.log('📤 Отправляем данные на сервер...');
-
         const result = await apiService.createShiftReport(apiFormData);
-
-        console.log('✅ Ответ сервера:', result);
-        alert('✅ Отчет смены успешно отправлен!');
-        setCurrentForm('menu');
+        showNotification('success', 'Отчет отправлен!', 'Отчет смены успешно отправлен и сохранен в системе');
 
       } catch (error) {
         console.error('❌ Ошибка отправки отчета:', error);
-        alert(`❌ Ошибка отправки: ${error.message}`);
+        showNotification('error', 'Ошибка сервера', `Не удалось отправить отчет: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
-    };
-
-    const totals = calculateTotals();
+    }, [formData, calculateTotals, apiService, showNotification, showValidationErrors]);
 
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => setCurrentForm('menu')}
-              className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+              onClick={() => {
+                clearNotification();
+                setValidationErrors({});
+                setCurrentForm('menu');
+              }}
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
-              <Home size={20} />
+              <Home size={20} className="text-gray-600" />
             </button>
-            <h1 className="text-2xl font-bold text-green-400">💰 Завершить смену, сдать отчёт</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-green-600">💰 Завершить смену, сдать отчёт</h1>
+              {currentDraftId && (
+                <p className="text-sm text-green-600">✓ Автосохранение включено</p>
+              )}
+            </div>
           </div>
+
+          {/* Ошибки валидации */}
+          <ValidationAlert errors={validationErrors} />
 
           {/* Location Selection */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <MapPin size={16} className="text-red-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
               Адрес локации *
             </label>
             <div className="space-y-2">
@@ -339,9 +771,9 @@ const TelegramWebApp = () => {
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.location === loc 
-                      ? 'bg-red-600 border-red-500 text-white' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600 text-gray-300'
-                  }`}
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   • {loc}
                 </button>
@@ -351,8 +783,8 @@ const TelegramWebApp = () => {
 
           {/* Shift Selection */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <Clock size={16} className="text-yellow-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <Clock size={16} className="text-yellow-500" />
               Выбор смены *
             </label>
             <div className="flex gap-2">
@@ -363,9 +795,9 @@ const TelegramWebApp = () => {
                   disabled={isLoading}
                   className={`flex-1 p-3 rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.shift === shift 
-                      ? 'bg-yellow-600 border-yellow-500' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                  }`}
+                      ? 'bg-yellow-500 border-yellow-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   {shift} / {shift === 'Утро' ? 'День' : 'Ночь'}
                 </button>
@@ -375,141 +807,178 @@ const TelegramWebApp = () => {
 
           {/* Date & Cashier */}
           <div className="mb-4">
-            <label className="text-sm font-medium block mb-2">📅 Дата (автозаполнение по МСК)</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
             <input
               type="text"
               value={formData.date}
               readOnly
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
             />
           </div>
 
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2">👤 Имя кассира *</label>
-            <input
+            <label className="text-sm font-medium block mb-2 text-gray-700">👤 Имя кассира *</label>
+            <MemoizedInput
               type="text"
               value={formData.cashierName}
               onChange={(e) => handleInputChange('cashierName', e.target.value)}
               disabled={isLoading}
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
+              className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
               placeholder="Введите имя кассира"
+              name="cashierName"
+              id="cashierName"
+              hasError={!!validationErrors.cashierName}
             />
           </div>
 
           {/* Income Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-green-400 mb-3">💰 Приход денег/внесения</h3>
+            <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
             {formData.incomes.map((income, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Сумма"
                   value={income.amount}
-                  onChange={(e) => handleInputChange('incomes', e.target.value, index, 'amount')}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('incomes', value, index, 'amount')
+                  )}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`income-amount-${index}`}
+                  id={`income-amount-${index}`}
                 />
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Комментарий"
                   value={income.comment}
                   onChange={(e) => handleInputChange('incomes', e.target.value, index, 'comment')}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`income-comment-${index}`}
+                  id={`income-comment-${index}`}
                 />
               </div>
             ))}
-            <div className="text-right text-green-400 font-semibold">
-              Итого приход: {totals.totalIncome.toLocaleString()} ₽
+            <div className="text-right text-green-600 font-semibold bg-green-50 p-2 rounded-lg">
+              Итого приход: {calculateTotals.totalIncome.toLocaleString()} ₽
             </div>
           </div>
 
           {/* Expenses Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-red-400 mb-3">💸 Расходы</h3>
+            <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
             {formData.expenses.map((expense, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Текст"
                   value={expense.name}
                   onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`expense-name-${index}`}
+                  id={`expense-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Сумма"
                   value={expense.amount}
-                  onChange={(e) => handleInputChange('expenses', e.target.value, index, 'amount')}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('expenses', value, index, 'amount')
+                  )}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`expense-amount-${index}`}
+                  id={`expense-amount-${index}`}
                 />
               </div>
             ))}
-            <div className="text-right text-red-400 font-semibold">
-              Итого расходы: {totals.totalExpenses.toLocaleString()} ₽
+            <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
+              Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
             </div>
           </div>
 
           {/* iiko Information */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">📱 Информация из iiko</h3>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">📱 Информация из iiko</h3>
             <div className="space-y-2">
               {[
-                { key: 'totalRevenue', label: 'Общая выручка *' },
+                { key: 'totalRevenue', label: 'Общая выручка *', required: true },
                 { key: 'returns', label: 'Возврат' },
                 { key: 'acquiring', label: 'Эквайринг' },
                 { key: 'qrCode', label: 'QR-код' },
                 { key: 'onlineApp', label: 'Онлайн приложение' },
                 { key: 'yandexEda', label: 'Яндекс.Еда' }
               ].map(item => (
-                <input
-                  key={item.key}
-                  type="number"
-                  placeholder={item.label}
-                  value={formData.iikoData[item.key]}
-                  onChange={(e) => handleInputChange(`iikoData.${item.key}`, e.target.value)}
-                  disabled={isLoading}
-                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
-                />
+                <div key={item.key}>
+                  <MemoizedInput
+                    type="text"
+                    placeholder={item.label}
+                    value={formData.iikoData[item.key]}
+                    onChange={(e) => handleNumberInput(e, (value) =>
+                      handleInputChange(`iikoData.${item.key}`, value)
+                    )}
+                    disabled={isLoading}
+                    className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                    name={`iiko-${item.key}`}
+                    id={`iiko-${item.key}`}
+                    hasError={validationErrors.totalRevenue && item.key === 'totalRevenue'}
+                  />
+                </div>
               ))}
             </div>
           </div>
 
           {/* Photo Upload */}
           <div className="mb-6">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <Camera size={16} className="text-purple-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <Camera size={16} className="text-purple-500" />
               Фотография кассового отчёта *
             </label>
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => setFormData(prev => ({ ...prev, photo: e.target.files[0] }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
+                if (validationErrors.photo) {
+                  setValidationErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.photo;
+                    return newErrors;
+                  });
+                }
+              }}
               disabled={isLoading}
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700 disabled:opacity-50"
+              className={`w-full p-3 bg-white border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white hover:file:bg-purple-600 disabled:opacity-50 transition-colors ${
+                validationErrors.photo ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              name="photo"
+              id="photo"
             />
             {formData.photo && (
-              <p className="text-sm text-green-400 mt-2">✅ Выбран файл: {formData.photo.name}</p>
+              <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+                <CheckCircle size={14} />
+                Выбран файл: {formData.photo.name}
+              </p>
             )}
           </div>
 
           {/* Calculation Results */}
-          <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-400 mb-3">
+          <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-600 mb-3">
               <Calculator size={20} />
               Расчёт сверки
             </h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between text-gray-700">
                 <span>Расчетная сумма:</span>
-                <span className="font-semibold">{totals.calculatedAmount.toLocaleString()} ₽</span>
+                <span className="font-semibold">{calculateTotals.calculatedAmount.toLocaleString()} ₽</span>
               </div>
-              <hr className="border-gray-600" />
-              <div className={`flex justify-between font-bold ${totals.difference >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                <span>{totals.difference >= 0 ? '✅ Излишек:' : '❌ Недостача:'}</span>
-                <span>{Math.abs(totals.difference).toLocaleString()} ₽</span>
+              <hr className="border-gray-300" />
+              <div className={`flex justify-between font-bold ${calculateTotals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{calculateTotals.difference >= 0 ? '✅ Излишек:' : '❌ Недостача:'}</span>
+                <span>{Math.abs(calculateTotals.difference).toLocaleString()} ₽</span>
               </div>
             </div>
           </div>
@@ -517,9 +986,16 @@ const TelegramWebApp = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (currentDraftId) {
+                  deleteDraft(currentDraftId);
+                  setCurrentDraftId(null);
+                }
+                setValidationErrors({});
+                window.location.reload();
+              }}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
             >
               <RefreshCw size={18} />
               Очистить
@@ -527,7 +1003,7 @@ const TelegramWebApp = () => {
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
                 <>
@@ -575,15 +1051,61 @@ const TelegramWebApp = () => {
       }
     });
 
-    const handleSubmit = async () => {
+    // Загружаем черновик при инициализации
+    useEffect(() => {
+      if (currentDraftId) {
+        const draftData = loadDraft(currentDraftId);
+        if (draftData) {
+          setFormData(draftData);
+        }
+      }
+    }, [currentDraftId, loadDraft]);
+
+    // Функция для автосохранения
+    const autoSaveFunction = useCallback((data) => {
+      if (data.location || data.shift || data.conductor ||
+          Object.values(data.items).some(v => v)) {
+        saveDraft('inventory', data);
+      }
+    }, [saveDraft]);
+
+    // Автосохранение каждые 300мс с сохранением фокуса
+    useAutoSave(formData, autoSaveFunction, 300);
+
+    const handleInputChange = useCallback((field, value) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+
+      // Очищаем ошибку валидации при изменении поля
+      if (validationErrors[field]) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    }, [validationErrors]);
+
+    const handleItemChange = useCallback((item, value) => {
+      setFormData(prev => ({
+        ...prev,
+        items: { ...prev.items, [item]: value }
+      }));
+    }, []);
+
+    const handleSubmit = useCallback(async () => {
       // Валидация
-      if (!formData.location || !formData.shift || !formData.conductor) {
-        alert('❌ Пожалуйста, заполните все обязательные поля');
+      const errors = {};
+
+      if (!formData.location) errors.location = 'Выберите локацию';
+      if (!formData.shift) errors.shift = 'Выберите смену';
+      if (!formData.conductor.trim()) errors.conductor = 'Введите имя сотрудника';
+
+      if (Object.keys(errors).length > 0) {
+        showValidationErrors(errors);
         return;
       }
 
       setIsLoading(true);
-      console.log('🚀 Начинаем отправку отчета инвентаризации...');
 
       try {
         // Подготовка FormData для API
@@ -612,53 +1134,60 @@ const TelegramWebApp = () => {
         apiFormData.append('kuriza_jareny', parseInt(formData.items['Курица жаренная']) || 0);
         apiFormData.append('kuriza_siraya', parseInt(formData.items['Курица сырая']) || 0);
 
-        console.log('📤 Отправляем данные инвентаризации...');
-
         const result = await apiService.createInventoryReport(apiFormData);
-
-        console.log('✅ Ответ сервера:', result);
-        alert('✅ Отчет инвентаризации успешно отправлен!');
-        setCurrentForm('menu');
+        showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в системе');
 
       } catch (error) {
         console.error('❌ Ошибка отправки отчета:', error);
-        alert(`❌ Ошибка отправки: ${error.message}`);
+        showNotification('error', 'Ошибка сервера', `Не удалось отправить отчет: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [formData, apiService, showNotification, showValidationErrors]);
 
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => setCurrentForm('menu')}
-              className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+              onClick={() => {
+                clearNotification();
+                setValidationErrors({});
+                setCurrentForm('menu');
+              }}
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
-              <Home size={20} />
+              <Home size={20} className="text-gray-600" />
             </button>
-            <h1 className="text-2xl font-bold text-blue-400">📦 Ежедневная инвентаризация</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-blue-600">📦 Ежедневная инвентаризация</h1>
+              {currentDraftId && (
+                <p className="text-sm text-blue-600">✓ Автосохранение включено</p>
+              )}
+            </div>
           </div>
+
+          {/* Ошибки валидации */}
+          <ValidationAlert errors={validationErrors} />
 
           {/* Location */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <MapPin size={16} className="text-red-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
               Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
                 <button
                   key={loc}
-                  onClick={() => setFormData(prev => ({ ...prev, location: loc }))}
+                  onClick={() => handleInputChange('location', loc)}
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.location === loc 
-                      ? 'bg-red-600 border-red-500 text-white' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600 text-gray-300'
-                  }`}
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   {loc}
                 </button>
@@ -668,21 +1197,21 @@ const TelegramWebApp = () => {
 
           {/* Shift */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <Clock size={16} className="text-yellow-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <Clock size={16} className="text-yellow-500" />
               Смена: выбор по кнопке *
             </label>
             <div className="flex gap-2">
               {['Утро', 'Ночь'].map(shift => (
                 <button
                   key={shift}
-                  onClick={() => setFormData(prev => ({ ...prev, shift }))}
+                  onClick={() => handleInputChange('shift', shift)}
                   disabled={isLoading}
                   className={`flex-1 p-3 rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.shift === shift 
-                      ? 'bg-yellow-600 border-yellow-500' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                  }`}
+                      ? 'bg-yellow-500 border-yellow-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   {shift} / {shift === 'Утро' ? 'День' : 'Ночь'}
                 </button>
@@ -692,46 +1221,49 @@ const TelegramWebApp = () => {
 
           {/* Date */}
           <div className="mb-4">
-            <label className="text-sm font-medium block mb-2">📅 Дата (автоматически дата и время по мск)</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автоматически дата и время по мск)</label>
             <input
               type="text"
               value={formData.date}
               readOnly
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
             />
           </div>
 
           {/* Conductor */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2">👤 Кто провел *</label>
-            <input
+            <label className="text-sm font-medium block mb-2 text-gray-700">👤 Кто провел *</label>
+            <MemoizedInput
               type="text"
               value={formData.conductor}
-              onChange={(e) => setFormData(prev => ({ ...prev, conductor: e.target.value }))}
+              onChange={(e) => handleInputChange('conductor', e.target.value)}
               disabled={isLoading}
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
+              className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
               placeholder="Введите имя сотрудника"
+              name="conductor"
+              id="conductor"
+              hasError={!!validationErrors.conductor}
             />
           </div>
 
           {/* Items */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">📋 Товар:</h3>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">📋 Товар:</h3>
             <div className="space-y-3">
               {Object.entries(formData.items).map(([item, value]) => (
-                <div key={item} className="flex items-center gap-3">
-                  <span className="flex-1 text-sm">{item}:</span>
-                  <input
-                    type="number"
+                <div key={item} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-300 shadow-sm">
+                  <span className="flex-1 text-sm text-gray-700">{item}:</span>
+                  <MemoizedInput
+                    type="text"
                     value={value}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      items: { ...prev.items, [item]: e.target.value }
-                    }))}
+                    onChange={(e) => handleNumberInput(e, (newValue) =>
+                      handleItemChange(item, newValue)
+                    )}
                     disabled={isLoading}
-                    className="w-20 p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50"
+                    className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
                     placeholder="0"
-                    min="0"
+                    name={`item-${item}`}
+                    id={`item-${item}`}
                   />
                 </div>
               ))}
@@ -741,9 +1273,16 @@ const TelegramWebApp = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (currentDraftId) {
+                  deleteDraft(currentDraftId);
+                  setCurrentDraftId(null);
+                }
+                setValidationErrors({});
+                window.location.reload();
+              }}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
             >
               <RefreshCw size={18} />
               Очистить
@@ -751,7 +1290,7 @@ const TelegramWebApp = () => {
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-semibold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
                 <>
@@ -781,12 +1320,63 @@ const TelegramWebApp = () => {
       packaging: Array(5).fill({ name: '', quantity: '' })
     });
 
-    const handleSubmit = async () => {
-      // Валидация
-      if (!formData.location) {
-        alert('❌ Пожалуйста, выберите локацию');
-        return;
+    // Загружаем черновик при инициализации
+    useEffect(() => {
+      if (currentDraftId) {
+        const draftData = loadDraft(currentDraftId);
+        if (draftData) {
+          setFormData(draftData);
+        }
       }
+    }, [currentDraftId, loadDraft]);
+
+    // Функция для автосохранения
+    const autoSaveFunction = useCallback((data) => {
+      const hasKitchenItems = data.kitchen.some(item => item.name || item.quantity);
+      const hasBarItems = data.bar.some(item => item.name || item.quantity);
+      const hasPackagingItems = data.packaging.some(item => item.name || item.quantity);
+
+      if (data.location || hasKitchenItems || hasBarItems || hasPackagingItems) {
+        saveDraft('receiving', data);
+      }
+    }, [saveDraft]);
+
+    // Автосохранение каждые 300мс с сохранением фокуса
+    useAutoSave(formData, autoSaveFunction, 300);
+
+    const handleInputChange = useCallback((field, value) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+
+      // Очищаем ошибку валидации при изменении поля
+      if (validationErrors[field]) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    }, [validationErrors]);
+
+    const handleArrayChange = useCallback((arrayName, index, field, value) => {
+      setFormData(prev => {
+        const newArray = [...prev[arrayName]];
+        newArray[index] = { ...newArray[index], [field]: value };
+        return { ...prev, [arrayName]: newArray };
+      });
+    }, []);
+
+    const addArrayItem = useCallback((arrayName) => {
+      setFormData(prev => ({
+        ...prev,
+        [arrayName]: [...prev[arrayName], { name: '', quantity: '' }]
+      }));
+    }, []);
+
+    const handleSubmit = useCallback(async () => {
+      // Валидация
+      const errors = {};
+
+      if (!formData.location) errors.location = 'Выберите локацию';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
       const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity);
@@ -794,12 +1384,15 @@ const TelegramWebApp = () => {
       const hasPackagingItems = formData.packaging.some(item => item.name && item.quantity);
 
       if (!hasKitchenItems && !hasBarItems && !hasPackagingItems) {
-        alert('❌ Пожалуйста, заполните хотя бы одну позицию товара');
+        errors.items = 'Заполните хотя бы одну позицию товара';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        showValidationErrors(errors);
         return;
       }
 
       setIsLoading(true);
-      console.log('🚀 Начинаем отправку отчета приема товаров...');
 
       try {
         // Подготовка FormData для API
@@ -835,53 +1428,60 @@ const TelegramWebApp = () => {
           apiFormData.append('upakovki_json', JSON.stringify(upakovkiItems));
         }
 
-        console.log('📤 Отправляем данные приема товаров...');
-
         const result = await apiService.createReceivingReport(apiFormData);
-
-        console.log('✅ Ответ сервера:', result);
-        alert('✅ Отчет приема товаров успешно отправлен!');
-        setCurrentForm('menu');
+        showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
 
       } catch (error) {
         console.error('❌ Ошибка отправки отчета:', error);
-        alert(`❌ Ошибка отправки: ${error.message}`);
+        showNotification('error', 'Ошибка сервера', `Не удалось отправить отчет: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [formData, apiService, showNotification, showValidationErrors]);
 
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => setCurrentForm('menu')}
-              className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+              onClick={() => {
+                clearNotification();
+                setValidationErrors({});
+                setCurrentForm('menu');
+              }}
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
-              <Home size={20} />
+              <Home size={20} className="text-gray-600" />
             </button>
-            <h1 className="text-2xl font-bold text-purple-400">📥 Отчёт прием товара</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-purple-600">📥 Отчёт прием товара</h1>
+              {currentDraftId && (
+                <p className="text-sm text-purple-600">✓ Автосохранение включено</p>
+              )}
+            </div>
           </div>
+
+          {/* Ошибки валидации */}
+          <ValidationAlert errors={validationErrors} />
 
           {/* Location */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <MapPin size={16} className="text-red-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
               Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
                 <button
                   key={loc}
-                  onClick={() => setFormData(prev => ({ ...prev, location: loc }))}
+                  onClick={() => handleInputChange('location', loc)}
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.location === loc 
-                      ? 'bg-red-600 border-red-500 text-white' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600 text-gray-300'
-                  }`}
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   {loc}
                 </button>
@@ -891,55 +1491,49 @@ const TelegramWebApp = () => {
 
           {/* Date */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2">📅 Выбор даты</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Выбор даты</label>
             <input
               type="text"
               value={formData.date}
               readOnly
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
             />
           </div>
 
           {/* Kitchen Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-orange-400 mb-3">🍳 Кухня</h3>
-            <p className="text-sm text-gray-400 mb-3">15 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
+            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.kitchen.map((item, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
-                  onChange={(e) => {
-                    const newKitchen = [...formData.kitchen];
-                    newKitchen[index] = { ...newKitchen[index], name: e.target.value };
-                    setFormData(prev => ({ ...prev, kitchen: newKitchen }));
-                  }}
+                  onChange={(e) => handleArrayChange('kitchen', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`kitchen-name-${index}`}
+                  id={`kitchen-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Количество"
                   value={item.quantity}
-                  onChange={(e) => {
-                    const newKitchen = [...formData.kitchen];
-                    newKitchen[index] = { ...newKitchen[index], quantity: e.target.value };
-                    setFormData(prev => ({ ...prev, kitchen: newKitchen }));
-                  }}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleArrayChange('kitchen', index, 'quantity', value)
+                  )}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50"
-                  min="1"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`kitchen-quantity-${index}`}
+                  id={`kitchen-quantity-${index}`}
                 />
               </div>
             ))}
             <button
-              onClick={() => setFormData(prev => ({
-                ...prev,
-                kitchen: [...prev.kitchen, { name: '', quantity: '' }]
-              }))}
+              onClick={() => addArrayItem('kitchen')}
               disabled={isLoading}
-              className="w-full p-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
               Добавить еще
@@ -948,44 +1542,38 @@ const TelegramWebApp = () => {
 
           {/* Bar Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">🍺 Бар</h3>
-            <p className="text-sm text-gray-400 mb-3">10 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">🍺 Бар</h3>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.bar.map((item, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
-                  onChange={(e) => {
-                    const newBar = [...formData.bar];
-                    newBar[index] = { ...newBar[index], name: e.target.value };
-                    setFormData(prev => ({ ...prev, bar: newBar }));
-                  }}
+                  onChange={(e) => handleArrayChange('bar', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`bar-name-${index}`}
+                  id={`bar-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Количество"
                   value={item.quantity}
-                  onChange={(e) => {
-                    const newBar = [...formData.bar];
-                    newBar[index] = { ...newBar[index], quantity: e.target.value };
-                    setFormData(prev => ({ ...prev, bar: newBar }));
-                  }}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleArrayChange('bar', index, 'quantity', value)
+                  )}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
-                  min="1"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`bar-quantity-${index}`}
+                  id={`bar-quantity-${index}`}
                 />
               </div>
             ))}
             <button
-              onClick={() => setFormData(prev => ({
-                ...prev,
-                bar: [...prev.bar, { name: '', quantity: '' }]
-              }))}
+              onClick={() => addArrayItem('bar')}
               disabled={isLoading}
-              className="w-full p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
               Добавить еще
@@ -994,44 +1582,38 @@ const TelegramWebApp = () => {
 
           {/* Packaging Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-green-400 mb-3">📦 Упаковки/хоз</h3>
-            <p className="text-sm text-gray-400 mb-3">5 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <h3 className="text-lg font-semibold text-green-600 mb-3">📦 Упаковки/хоз</h3>
+            <p className="text-sm text-gray-600 mb-3">5 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.packaging.map((item, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
-                  onChange={(e) => {
-                    const newPackaging = [...formData.packaging];
-                    newPackaging[index] = { ...newPackaging[index], name: e.target.value };
-                    setFormData(prev => ({ ...prev, packaging: newPackaging }));
-                  }}
+                  onChange={(e) => handleArrayChange('packaging', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`packaging-name-${index}`}
+                  id={`packaging-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Количество"
                   value={item.quantity}
-                  onChange={(e) => {
-                    const newPackaging = [...formData.packaging];
-                    newPackaging[index] = { ...newPackaging[index], quantity: e.target.value };
-                    setFormData(prev => ({ ...prev, packaging: newPackaging }));
-                  }}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleArrayChange('packaging', index, 'quantity', value)
+                  )}
                   disabled={isLoading}
-                  className="p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50"
-                  min="1"
+                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`packaging-quantity-${index}`}
+                  id={`packaging-quantity-${index}`}
                 />
               </div>
             ))}
             <button
-              onClick={() => setFormData(prev => ({
-                ...prev,
-                packaging: [...prev.packaging, { name: '', quantity: '' }]
-              }))}
+              onClick={() => addArrayItem('packaging')}
               disabled={isLoading}
-              className="w-full p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
               Добавить еще
@@ -1041,9 +1623,16 @@ const TelegramWebApp = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (currentDraftId) {
+                  deleteDraft(currentDraftId);
+                  setCurrentDraftId(null);
+                }
+                setValidationErrors({});
+                window.location.reload();
+              }}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
             >
               <RefreshCw size={18} />
               Очистить
@@ -1051,7 +1640,7 @@ const TelegramWebApp = () => {
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors font-semibold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
                 <>
@@ -1080,24 +1669,70 @@ const TelegramWebApp = () => {
       transfers: Array(10).fill({ name: '', weight: '', reason: '' })
     });
 
-    const handleSubmit = async () => {
-      // Валидация
-      if (!formData.location) {
-        alert('❌ Пожалуйста, выберите локацию');
-        return;
+    // Загружаем черновик при инициализации
+    useEffect(() => {
+      if (currentDraftId) {
+        const draftData = loadDraft(currentDraftId);
+        if (draftData) {
+          setFormData(draftData);
+        }
       }
+    }, [currentDraftId, loadDraft]);
+
+    // Функция для автосохранения
+    const autoSaveFunction = useCallback((data) => {
+      const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.reason);
+      const hasTransfers = data.transfers.some(item => item.name || item.weight || item.reason);
+
+      if (data.location || hasWriteOffs || hasTransfers) {
+        saveDraft('writeoff', data);
+      }
+    }, [saveDraft]);
+
+    // Автосохранение каждые 300мс с сохранением фокуса
+    useAutoSave(formData, autoSaveFunction, 300);
+
+    const handleInputChange = useCallback((field, value) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+
+      // Очищаем ошибку валидации при изменении поля
+      if (validationErrors[field]) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    }, [validationErrors]);
+
+    const handleArrayChange = useCallback((arrayName, index, field, value) => {
+      setFormData(prev => {
+        const newArray = [...prev[arrayName]];
+        newArray[index] = { ...newArray[index], [field]: value };
+        return { ...prev, [arrayName]: newArray };
+      });
+    }, []);
+
+    const handleSubmit = useCallback(async () => {
+      // Валидация
+      const errors = {};
+
+      if (!formData.location) errors.location = 'Выберите локацию';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
       const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.reason);
       const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.reason);
 
       if (!hasWriteOffs && !hasTransfers) {
-        alert('❌ Пожалуйста, заполните хотя бы одну позицию списания или перемещения');
+        errors.items = 'Заполните хотя бы одну позицию списания или перемещения';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        showValidationErrors(errors);
         return;
       }
 
       setIsLoading(true);
-      console.log('🚀 Начинаем отправку акта списания/перемещения...');
 
       try {
         // Подготовка FormData для API
@@ -1133,53 +1768,60 @@ const TelegramWebApp = () => {
           apiFormData.append('transfers_json', JSON.stringify(transfers));
         }
 
-        console.log('📤 Отправляем данные списания/перемещения...');
-
         const result = await apiService.createWriteOffReport(apiFormData);
-
-        console.log('✅ Ответ сервера:', result);
-        alert('✅ Акт списания/перемещения успешно отправлен!');
-        setCurrentForm('menu');
+        showNotification('success', 'Акт отправлен!', 'Акт списания/перемещения успешно отправлен и сохранен в системе');
 
       } catch (error) {
         console.error('❌ Ошибка отправки отчета:', error);
-        alert(`❌ Ошибка отправки: ${error.message}`);
+        showNotification('error', 'Ошибка сервера', `Не удалось отправить отчет: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [formData, apiService, showNotification, showValidationErrors]);
 
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => setCurrentForm('menu')}
-              className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+              onClick={() => {
+                clearNotification();
+                setValidationErrors({});
+                setCurrentForm('menu');
+              }}
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
-              <Home size={20} />
+              <Home size={20} className="text-gray-600" />
             </button>
-            <h1 className="text-2xl font-bold text-red-400">📋 Акты списания/перемещения</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-red-600">📋 Акты списания/перемещения</h1>
+              {currentDraftId && (
+                <p className="text-sm text-red-600">✓ Автосохранение включено</p>
+              )}
+            </div>
           </div>
+
+          {/* Ошибки валидации */}
+          <ValidationAlert errors={validationErrors} />
 
           {/* Location */}
           <div className="mb-4">
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              <MapPin size={16} className="text-red-400" />
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
               Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
                 <button
                   key={loc}
-                  onClick={() => setFormData(prev => ({ ...prev, location: loc }))}
+                  onClick={() => handleInputChange('location', loc)}
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.location === loc 
-                      ? 'bg-red-600 border-red-500 text-white' 
-                      : 'bg-gray-800 border-gray-700 hover:border-gray-600 text-gray-300'
-                  }`}
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
                 >
                   {loc}
                 </button>
@@ -1189,59 +1831,53 @@ const TelegramWebApp = () => {
 
           {/* Date */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2">📅 Дата отчета</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата отчета</label>
             <input
               type="date"
               value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              onChange={(e) => handleInputChange('date', e.target.value)}
               disabled={isLoading}
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50"
+              className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
             />
           </div>
 
           {/* Write-offs Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-red-400 mb-3">🗑️ Списания</h3>
-            <p className="text-sm text-gray-400 mb-3">10 пунктов<br />наименования — вес (кг) — причина порчи</p>
+            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес (кг) — причина порчи</p>
             {formData.writeOffs.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Название"
                   value={item.name}
-                  onChange={(e) => {
-                    const newWriteOffs = [...formData.writeOffs];
-                    newWriteOffs[index] = { ...newWriteOffs[index], name: e.target.value };
-                    setFormData(prev => ({ ...prev, writeOffs: newWriteOffs }));
-                  }}
+                  onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`writeoff-name-${index}`}
+                  id={`writeoff-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Вес (кг)"
                   value={item.weight}
-                  onChange={(e) => {
-                    const newWriteOffs = [...formData.writeOffs];
-                    newWriteOffs[index] = { ...newWriteOffs[index], weight: e.target.value };
-                    setFormData(prev => ({ ...prev, writeOffs: newWriteOffs }));
-                  }}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleArrayChange('writeOffs', index, 'weight', value)
+                  )}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50"
-                  step="0.1"
-                  min="0.1"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`writeoff-weight-${index}`}
+                  id={`writeoff-weight-${index}`}
                 />
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Причина"
                   value={item.reason}
-                  onChange={(e) => {
-                    const newWriteOffs = [...formData.writeOffs];
-                    newWriteOffs[index] = { ...newWriteOffs[index], reason: e.target.value };
-                    setFormData(prev => ({ ...prev, writeOffs: newWriteOffs }));
-                  }}
+                  onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`writeoff-reason-${index}`}
+                  id={`writeoff-reason-${index}`}
                 />
               </div>
             ))}
@@ -1249,47 +1885,41 @@ const TelegramWebApp = () => {
 
           {/* Transfers Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">↔️ Перемещение</h3>
-            <p className="text-sm text-gray-400 mb-3">10 пунктов<br />наименования — вес (кг) — причина перемещения</p>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещение</h3>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес (кг) — причина перемещения</p>
             {formData.transfers.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Название"
                   value={item.name}
-                  onChange={(e) => {
-                    const newTransfers = [...formData.transfers];
-                    newTransfers[index] = { ...newTransfers[index], name: e.target.value };
-                    setFormData(prev => ({ ...prev, transfers: newTransfers }));
-                  }}
+                  onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`transfer-name-${index}`}
+                  id={`transfer-name-${index}`}
                 />
-                <input
-                  type="number"
+                <MemoizedInput
+                  type="text"
                   placeholder="Вес (кг)"
                   value={item.weight}
-                  onChange={(e) => {
-                    const newTransfers = [...formData.transfers];
-                    newTransfers[index] = { ...newTransfers[index], weight: e.target.value };
-                    setFormData(prev => ({ ...prev, transfers: newTransfers }));
-                  }}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleArrayChange('transfers', index, 'weight', value)
+                  )}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50"
-                  step="0.1"
-                  min="0.1"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`transfer-weight-${index}`}
+                  id={`transfer-weight-${index}`}
                 />
-                <input
+                <MemoizedInput
                   type="text"
                   placeholder="Причина"
                   value={item.reason}
-                  onChange={(e) => {
-                    const newTransfers = [...formData.transfers];
-                    newTransfers[index] = { ...newTransfers[index], reason: e.target.value };
-                    setFormData(prev => ({ ...prev, transfers: newTransfers }));
-                  }}
+                  onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  name={`transfer-reason-${index}`}
+                  id={`transfer-reason-${index}`}
                 />
               </div>
             ))}
@@ -1298,9 +1928,16 @@ const TelegramWebApp = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (currentDraftId) {
+                  deleteDraft(currentDraftId);
+                  setCurrentDraftId(null);
+                }
+                setValidationErrors({});
+                window.location.reload();
+              }}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
             >
               <RefreshCw size={18} />
               Очистить
@@ -1308,7 +1945,7 @@ const TelegramWebApp = () => {
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors font-semibold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
                 <>
@@ -1330,6 +1967,11 @@ const TelegramWebApp = () => {
 
   // Render current form
   const renderCurrentForm = () => {
+    // Показываем NotificationScreen только для успешных операций или критических ошибок
+    if (notification) {
+      return <NotificationScreen />;
+    }
+
     switch (currentForm) {
       case 'menu': return <MainMenu />;
       case 'cashier': return <CashierReportForm />;
