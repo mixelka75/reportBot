@@ -193,3 +193,18 @@ pomodoro.sqlite
 *.env
 uploads
 .venv
+
+# Docker volume data
+postgres_data/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build directories
+dist/
+node_modules/
+
+# Upload directory
+uploads/

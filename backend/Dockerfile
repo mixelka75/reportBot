@@ -22,6 +22,10 @@ ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
+# Создаем папку для загрузок
+RUN mkdir -p /app/uploads/shift_reports
+VOLUME /app/uploads
+
 # Создаем скрипт запуска
 COPY <<EOF /app/start.sh
 #!/bin/bash
