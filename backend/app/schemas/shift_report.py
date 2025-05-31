@@ -97,44 +97,37 @@ class ShiftReportCreate(BaseModel):
 
     total_revenue: Decimal = Field(
         ...,
-        ge=0,
         description="Общая выручка из системы",
         example=15000.50
     )
     returns: Decimal = Field(
         default=0,
-        ge=0,
         description="Сумма возвратов",
         example=200.00
     )
     acquiring: Decimal = Field(
         default=0,
-        ge=0,
         description="Эквайринг (оплата картами)",
         example=5000.00
     )
     qr_code: Decimal = Field(
         default=0,
-        ge=0,
         description="Оплата по QR коду",
         example=1500.00
     )
     online_app: Decimal = Field(
         default=0,
-        ge=0,
         description="Оплата через онлайн приложение",
         example=2000.00
     )
     yandex_food: Decimal = Field(
         default=0,
-        ge=0,
         description="Оплата через Яндекс Еда",
         example=1200.00
     )
 
     fact_cash: Decimal = Field(
         ...,
-        ge=0,
         description="Фактическая сумма наличных в кассе",
         example=5100.50
     )
@@ -237,3 +230,4 @@ class ShiftReportResponse(BaseModel):
                 "created_at": "2025-05-28T10:30:00Z"
             }
         }
+
