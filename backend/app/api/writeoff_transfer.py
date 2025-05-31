@@ -5,7 +5,7 @@ from app.crud import WriteoffTransferCRUD
 from app.schemas import WriteoffTransferCreate, WriteoffTransferResponse, WriteoffEntry, TransferEntry
 from typing import Optional, List
 import json
-from app.core import get_db
+from app.core import get_db, LOCATIONS
 
 router = APIRouter()
 writeoff_transfer_crud = WriteoffTransferCRUD()
@@ -140,11 +140,7 @@ async def create_writeoff_transfer(
     """
     try:
         # Проверяем допустимые локации
-        allowed_locations = [
-            "Гагарина 48/1",
-            "Абдулхакима Исмаилова 51",
-            "Гайдара Гаджиева 7Б"
-        ]
+        allowed_locations = LOCATIONS
 
         if location not in allowed_locations:
             raise HTTPException(

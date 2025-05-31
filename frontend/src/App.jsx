@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Package, FileText, RotateCcw, Plus, CheckCircle, XCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
+import { LOCATIONS } from './constants';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -133,11 +134,7 @@ const TelegramWebApp = () => {
   const [drafts, setDrafts] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState(null);
 
-  const locations = [
-    'Гагарина 48/1',
-    'Абдулхакима Исмаилова 51',
-    'Гайдара Гаджиева 7Б'
-  ];
+  const locations = LOCATIONS
 
   // Функции для работы с черновиками
   const saveDraft = useCallback((formType, formData) => {
