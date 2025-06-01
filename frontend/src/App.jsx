@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Package, FileText, RotateCcw, Plus, CheckCircle, XCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { LOCATIONS } from './constants';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://miniapp-reportbot.yuuri.online';
 
 // Функция для конвертации File в base64
 const fileToBase64 = (file) => {

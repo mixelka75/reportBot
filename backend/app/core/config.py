@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     ABDULHAMID_51_TOPIC_ID: int = 0
     GAIDAR_7B_TOPIC_ID: int = 0
 
+    # URL мини-приложения
+    MINI_APP_URL: str = "https://your-domain.com/mini-app"
+
+    # Веб-хук настройки
+    WEBHOOK_URL: str = ""  # Будет установлен автоматически
+    WEBHOOK_SECRET_TOKEN: str = ""  # Опционально для безопасности
+
     @property
     def db_url(self) -> str:
         return f'{self.DB_DRIVER}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}'

@@ -5,8 +5,10 @@ from fastapi import UploadFile
 from pathlib import Path
 import json
 import socket
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.schemas.telegram import TelegramMessage
 
 
 class TelegramService:
@@ -14,6 +16,7 @@ class TelegramService:
         self.bot_token = settings.TELEGRAM_BOT_TOKEN
         self.chat_id = settings.TELEGRAM_CHAT_ID
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
+        self.mini_app_url = settings.MINI_APP_URL
 
         # Проверяем, что токен и chat_id заданы
         if not self.bot_token or self.bot_token == "your_bot_token_here":
@@ -47,6 +50,257 @@ class TelegramService:
 
         return None
 
+    async def handle_message(self, message: TelegramMessage, db: AsyncSession):
+        """Обрабатывает входящие сообщения от пользователей"""
+        if not self.enabled:
+            return
+
+        try:
+            text = message.text or ""
+            chat_id = message.chat.id
+            user_id = message.from_.id if message.from_ else None
+
+            # Обрабатываем команду /start
+            if text.startswith("/start"):
+                await self._handle_start_command(chat_id, user_id)
+
+            # Обрабатываем команду /help
+            elif text.startswith("/help"):
+                await self._handle_help_command(chat_id)
+
+            # Обрабатываем команду /status
+            elif text.startswith("/status"):
+                await self._handle_status_command(chat_id)
+
+        except Exception as e:
+            print(f"❌ Ошибка обработки сообщения: {str(e)}")
+
+    async def handle_callback_query(self, callback_query: Dict[str, Any], db: AsyncSession):
+        """Обрабатывает нажатия на inline кнопки"""
+        if not self.enabled:
+            return
+
+        try:
+            query_id = callback_query.get("id")
+            data = callback_query.get("data", "")
+
+            if data == "open_app":
+                # Отправляем ссылку на мини-приложение
+                await self._answer_callback_query(query_id, "Открываю приложение...")
+
+        except Exception as e:
+            print(f"❌ Ошибка обработки callback query: {str(e)}")
+
+    async def _handle_start_command(self, chat_id: int, user_id: Optional[int]):
+        """Обрабатывает команду /start"""
+        try:
+            # Создаем inline клавиатуру с кнопкой для запуска мини-приложения
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "📱 Открыть приложение отчетов",
+                            "web_app": {"url": self.mini_app_url}
+                        }
+                    ],
+                    [
+                        {
+                            "text": "ℹ️ Помощь",
+                            "callback_data": "help"
+                        },
+                        {
+                            "text": "📊 Статистика",
+                            "callback_data": "stats"
+                        }
+                    ]
+                ]
+            }
+
+            welcome_message = """🤖 <b>Добро пожаловать в ReportBot!</b>
+
+Этот бот поможет вам создавать отчеты для кафе:
+
+📊 <b>Доступные отчеты:</b>
+- Отчеты завершения смены
+- Ежедневная инвентаризация
+- Отчеты приема товаров
+- Акты списания/перемещения
+
+🚀 <b>Для начала работы нажмите кнопку ниже:</b>"""
+
+            await self._send_message_with_keyboard(chat_id, welcome_message, keyboard)
+
+        except Exception as e:
+            print(f"❌ Ошибка отправки приветствия: {str(e)}")
+
+    async def _handle_help_command(self, chat_id: int):
+        """Обрабатывает команду /help"""
+        help_message = """📖 <b>Справка по ReportBot</b>
+
+<b>Доступные команды:</b>
+/start - Запустить бота и открыть меню
+/help - Показать эту справку
+/status - Проверить статус системы
+
+<b>Типы отчетов:</b>
+
+🏪 <b>Отчет завершения смены</b>
+- Финансовая информация
+- Приходы и расходы
+- Сверка кассы
+- Обязательное фото отчета
+
+📦 <b>Ежедневная инвентаризация</b>
+- Подсчет напитков
+- Учет еды и ингредиентов
+- Контроль остатков
+
+📋 <b>Отчет приема товаров</b>
+- Товары для кухни
+- Товары для бара
+- Упаковки и хозтовары
+
+🗑 <b>Акт списания/перемещения</b>
+- Списание испорченных товаров
+- Перемещение между точками
+
+<b>Поддержка:</b> @your_support_username"""
+
+        await self._send_message(chat_id, help_message)
+
+    async def _handle_status_command(self, chat_id: int):
+        """Обрабатывает команду /status"""
+        status_message = f"""⚡ <b>Статус системы ReportBot</b>
+
+🤖 <b>Бот:</b> ✅ Работает
+📡 <b>API:</b> ✅ Доступно
+🌐 <b>Мини-приложение:</b> ✅ Активно
+
+<b>URL приложения:</b>
+{self.mini_app_url}
+
+<b>Последнее обновление:</b> Сейчас"""
+
+        await self._send_message(chat_id, status_message)
+
+    async def _send_message_with_keyboard(self, chat_id: int, text: str, keyboard: Dict[str, Any]):
+        """Отправляет сообщение с inline клавиатурой"""
+        try:
+            url = f"{self.base_url}/sendMessage"
+
+            data = {
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': 'HTML',
+                'reply_markup': json.dumps(keyboard)
+            }
+
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"Telegram API ошибка (клавиатура): {response.status} - {response_text}")
+                    return response.status == 200
+
+        except Exception as e:
+            print(f"Ошибка отправки сообщения с клавиатурой: {str(e)}")
+            return False
+
+    async def _answer_callback_query(self, query_id: str, text: str = ""):
+        """Отвечает на callback query"""
+        try:
+            url = f"{self.base_url}/answerCallbackQuery"
+
+            data = {
+                'callback_query_id': query_id,
+                'text': text
+            }
+
+            timeout = aiohttp.ClientTimeout(total=5, connect=3)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    return response.status == 200
+
+        except Exception as e:
+            print(f"Ошибка ответа на callback query: {str(e)}")
+            return False
+
+    # Методы для настройки веб-хуков
+    async def set_webhook(self, webhook_url: str) -> bool:
+        """Устанавливает веб-хук"""
+        try:
+            url = f"{self.base_url}/setWebhook"
+
+            data = {
+                'url': webhook_url,
+                'allowed_updates': json.dumps(['message', 'callback_query'])
+            }
+
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get('ok'):
+                            print(f"✅ Веб-хук установлен: {webhook_url}")
+                            return True
+                        else:
+                            print(f"❌ Ошибка установки веб-хука: {result.get('description')}")
+                    else:
+                        response_text = await response.text()
+                        print(f"❌ HTTP ошибка при установке веб-хука: {response.status} - {response_text}")
+                    return False
+
+        except Exception as e:
+            print(f"❌ Исключение при установке веб-хука: {str(e)}")
+            return False
+
+    async def delete_webhook(self) -> bool:
+        """Удаляет веб-хук"""
+        try:
+            url = f"{self.base_url}/deleteWebhook"
+
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get('ok'):
+                            print("✅ Веб-хук удален")
+                            return True
+                        else:
+                            print(f"❌ Ошибка удаления веб-хука: {result.get('description')}")
+                    return False
+
+        except Exception as e:
+            print(f"❌ Ошибка удаления веб-хука: {str(e)}")
+            return False
+
+    async def get_webhook_info(self) -> Dict[str, Any]:
+        """Получает информацию о веб-хуке"""
+        try:
+            url = f"{self.base_url}/getWebhookInfo"
+
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get('ok'):
+                            return result.get('result', {})
+                    return {}
+
+        except Exception as e:
+            print(f"❌ Ошибка получения информации о веб-хуке: {str(e)}")
+            return {}
+
+    # Остальные методы (отправка отчетов) остаются без изменений
     async def send_shift_report(self, report_data: Dict[str, Any], photo_path: str) -> bool:
         """Отправляет отчет смены в Telegram"""
         if not self.enabled:
@@ -86,7 +340,7 @@ class TelegramService:
             message = self._format_daily_inventory_message(report_data)
 
             # Отправляем сообщение
-            success = await self._send_message(message, topic_id)
+            success = await self._send_message(report_data.get('location'), message, topic_id)
 
             if success:
                 print(f"✅ Отчет инвентаризации отправлен в Telegram для локации: {report_data.get('location')}")
@@ -113,7 +367,7 @@ class TelegramService:
             message = self._format_goods_report_message(report_data)
 
             # Отправляем сообщение
-            success = await self._send_message(message, topic_id)
+            success = await self._send_message(self.chat_id, message, topic_id)
 
             if success:
                 print(f"✅ Отчет приема товаров отправлен в Telegram для локации: {report_data.get('location')}")
@@ -264,13 +518,13 @@ class TelegramService:
 
         return message
 
-    async def _send_message(self, text: str, topic_id: Optional[int] = None) -> bool:
+    async def _send_message(self, chat_id: int, text: str, topic_id: Optional[int] = None) -> bool:
         """Отправляет текстовое сообщение"""
         try:
             url = f"{self.base_url}/sendMessage"
 
             data = {
-                'chat_id': self.chat_id,
+                'chat_id': chat_id,
                 'text': text,
                 'parse_mode': 'HTML'
             }
@@ -351,7 +605,7 @@ class TelegramService:
             message = self._format_writeoff_transfer_message(report_data)
 
             # Отправляем сообщение
-            success = await self._send_message(message, topic_id)
+            success = await self._send_message(self.chat_id, message, topic_id)
 
             if success:
                 print(f"✅ Акт списания/перемещения отправлен в Telegram для локации: {report_data.get('location')}")
@@ -380,7 +634,7 @@ class TelegramService:
             message += "🗑 <b>СПИСАНИЕ:</b>\n"
             for item in writeoffs:
                 weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
-                int, float)) else f"{item.get('weight', 0)} шт"
+                    int, float)) else f"{item.get('weight', 0)} шт"
                 message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
             message += "\n"
 
@@ -390,7 +644,7 @@ class TelegramService:
             message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             for item in transfers:
                 weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
-                int, float)) else f"{item.get('weight', 0)} шт"
+                    int, float)) else f"{item.get('weight', 0)} шт"
                 message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
 
         return message
