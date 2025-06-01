@@ -4,6 +4,29 @@ import { LOCATIONS } from './constants';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+// Функция для конвертации File в base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Функция для конвертации base64 обратно в File
+const base64ToFile = (base64, filename) => {
+  const arr = base64.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 // Хук для сохранения и восстановления фокуса
 const useFocusPreservation = () => {
   const focusInfoRef = useRef(null);
@@ -57,9 +80,9 @@ const useAutoSave = (data, saveFunction, delay = 300) => {
       clearTimeout(timeoutRef.current);
     }
 
-    timeoutRef.current = setTimeout(() => {
+    timeoutRef.current = setTimeout(async () => {
       saveFocus();
-      saveFunction(data);
+      await saveFunction(data);
       restoreFocus();
     }, delay);
 
@@ -137,12 +160,26 @@ const TelegramWebApp = () => {
   const locations = LOCATIONS
 
   // Функции для работы с черновиками
-  const saveDraft = useCallback((formType, formData) => {
+  const saveDraft = useCallback(async (formType, formData) => {
     const draftId = currentDraftId || Date.now().toString();
+
+    // Конвертируем фото в base64 если есть
+    const dataToSave = { ...formData };
+    if (dataToSave.photo && dataToSave.photo instanceof File) {
+      try {
+        dataToSave.photoBase64 = await fileToBase64(dataToSave.photo);
+        dataToSave.photoName = dataToSave.photo.name;
+        delete dataToSave.photo;
+      } catch (error) {
+        console.warn('Не удалось сохранить фото в черновик:', error);
+        delete dataToSave.photo;
+      }
+    }
+
     const draft = {
       id: draftId,
       type: formType,
-      data: formData,
+      data: dataToSave,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -181,7 +218,20 @@ const TelegramWebApp = () => {
     if (draft) {
       setCurrentDraftId(draftId);
       setCurrentForm(draft.type);
-      return draft.data;
+
+      // Восстанавливаем фото из base64
+      const draftData = { ...draft.data };
+      if (draftData.photoBase64 && draftData.photoName) {
+        try {
+          draftData.photo = base64ToFile(draftData.photoBase64, draftData.photoName);
+          delete draftData.photoBase64;
+          delete draftData.photoName;
+        } catch (error) {
+          console.warn('Не удалось восстановить фото из черновика:', error);
+        }
+      }
+
+      return draftData;
     }
     return null;
   }, []);
@@ -229,6 +279,14 @@ const TelegramWebApp = () => {
       callback(value);
     }
   }, []);
+
+  // Функция для возврата в меню с обновлением черновиков
+  const goToMenu = useCallback(() => {
+    clearNotification();
+    setValidationErrors({});
+    setCurrentForm('menu');
+    loadDrafts(); // Обновляем список черновиков
+  }, [clearNotification, loadDrafts]);
 
   // Получение названия типа отчета
   const getReportTypeName = useCallback((type) => {
@@ -355,6 +413,7 @@ const TelegramWebApp = () => {
                 clearCurrentDraft();
               }
               setCurrentForm('menu');
+              loadDrafts(); // Обновляем список черновиков
             }}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
           >
@@ -597,13 +656,14 @@ const TelegramWebApp = () => {
       }
     }, [currentDraftId, loadDraft]);
 
-    // Функция для автосохранения
-    const autoSaveFunction = useCallback((data) => {
+    // Функция для автосохранения (теперь включаем фото)
+    const autoSaveFunction = useCallback(async (data) => {
       if (data.location || data.shift || data.cashierName ||
           data.incomes.some(i => i.amount || i.comment) ||
           data.expenses.some(e => e.name || e.amount) ||
-          Object.values(data.iikoData).some(v => v)) {
-        saveDraft('cashier', data);
+          Object.values(data.iikoData).some(v => v) ||
+          data.photo) {
+        await saveDraft('cashier', data);
       }
     }, [saveDraft]);
 
@@ -733,11 +793,7 @@ const TelegramWebApp = () => {
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => {
-                clearNotification();
-                setValidationErrors({});
-                setCurrentForm('menu');
-              }}
+              onClick={goToMenu}
               className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
@@ -1059,10 +1115,10 @@ const TelegramWebApp = () => {
     }, [currentDraftId, loadDraft]);
 
     // Функция для автосохранения
-    const autoSaveFunction = useCallback((data) => {
+    const autoSaveFunction = useCallback(async (data) => {
       if (data.location || data.shift || data.conductor ||
           Object.values(data.items).some(v => v)) {
-        saveDraft('inventory', data);
+        await saveDraft('inventory', data);
       }
     }, [saveDraft]);
 
@@ -1147,11 +1203,7 @@ const TelegramWebApp = () => {
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => {
-                clearNotification();
-                setValidationErrors({});
-                setCurrentForm('menu');
-              }}
+              onClick={goToMenu}
               className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
@@ -1328,13 +1380,13 @@ const TelegramWebApp = () => {
     }, [currentDraftId, loadDraft]);
 
     // Функция для автосохранения
-    const autoSaveFunction = useCallback((data) => {
+    const autoSaveFunction = useCallback(async (data) => {
       const hasKitchenItems = data.kitchen.some(item => item.name || item.quantity);
       const hasBarItems = data.bar.some(item => item.name || item.quantity);
       const hasPackagingItems = data.packaging.some(item => item.name || item.quantity);
 
       if (data.location || hasKitchenItems || hasBarItems || hasPackagingItems) {
-        saveDraft('receiving', data);
+        await saveDraft('receiving', data);
       }
     }, [saveDraft]);
 
@@ -1441,11 +1493,7 @@ const TelegramWebApp = () => {
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => {
-                clearNotification();
-                setValidationErrors({});
-                setCurrentForm('menu');
-              }}
+              onClick={goToMenu}
               className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >
@@ -1677,12 +1725,12 @@ const TelegramWebApp = () => {
     }, [currentDraftId, loadDraft]);
 
     // Функция для автосохранения
-    const autoSaveFunction = useCallback((data) => {
+    const autoSaveFunction = useCallback(async (data) => {
       const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.reason);
       const hasTransfers = data.transfers.some(item => item.name || item.weight || item.reason);
 
       if (data.location || hasWriteOffs || hasTransfers) {
-        saveDraft('writeoff', data);
+        await saveDraft('writeoff', data);
       }
     }, [saveDraft]);
 
@@ -1781,11 +1829,7 @@ const TelegramWebApp = () => {
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => {
-                clearNotification();
-                setValidationErrors({});
-                setCurrentForm('menu');
-              }}
+              onClick={goToMenu}
               className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               disabled={isLoading}
             >

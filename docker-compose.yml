@@ -13,8 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: always
     shm_size: 128mb
-    env_file:
-      - ./backend/app/.dev.env
+
 
   backend:
     build:
