@@ -43,7 +43,7 @@ ReportBot - это комплексная система отчетности д
 
 4. Запустить проект
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 5. Доступ к системе:
@@ -72,7 +72,7 @@ reportBot/
 │   │   └── App.jsx          # Основной компонент приложения
 │   ├── Dockerfile           # Dockerfile для фронтенда
 │   └── package.json         # Зависимости и скрипты NPM
-├── docker-compose.yml       # Конфигурация Docker Compose
+├── docker compose.yml       # Конфигурация Docker Compose
 ├── .env.example             # Пример файла окружения
 └── README.md                # Документация проекта
 ```
@@ -132,7 +132,7 @@ reportBot/
 ### Миграции базы данных
 При изменении моделей данных создайте новую миграцию:
 ```bash
-docker-compose exec backend bash -c "cd app && poetry run alembic revision --autogenerate -m 'описание изменений'"
+docker compose exec backend bash -c "cd app && poetry run alembic revision --autogenerate -m 'описание изменений'"
 ```
 
 ## Работа с API
@@ -152,7 +152,7 @@ docker-compose exec backend bash -c "cd app && poetry run alembic revision --aut
 1. Убедитесь, что порты 3000, 8000 и 5432 не заняты другими приложениями
 2. Проверьте логи контейнеров:
    ```bash
-   docker-compose logs
+   docker compose logs
    ```
 
 ### Проблема: Отчеты не отправляются в Telegram
@@ -160,15 +160,15 @@ docker-compose exec backend bash -c "cd app && poetry run alembic revision --aut
 2. Убедитесь, что бот имеет права на отправку сообщений в группу
 3. Проверьте логи бэкенда:
    ```bash
-   docker-compose logs backend
+   docker compose logs backend
    ```
 
 ### Проблема: Ошибки миграций базы данных
 1. Проверьте логи бэкенда при запуске
 2. Для сброса базы данных (⚠️ все данные будут потеряны):
    ```bash
-   docker-compose down -v
-   docker-compose up -d
+   docker compose down -v
+   docker compose up -d
    ```
 
 ## Лицензия
