@@ -1,0 +1,45 @@
+from decimal import Decimal
+from typing import List
+from app.schemas import IncomeEntry, ExpenseEntry
+
+
+class ReportCalculator:
+    @staticmethod
+    def calculate_shift_report(
+            total_revenue: Decimal,
+            returns: Decimal,
+            income_entries: List[IncomeEntry],
+            expense_entries: List[ExpenseEntry],
+            acquiring: Decimal,
+            qr_code: Decimal,
+            online_app: Decimal,
+            yandex_food: Decimal,
+            fact_cash: Decimal
+    ) -> dict:
+        """
+        Рассчитывает сверку для отчета завершения смены.
+
+        Формула: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг)
+        """
+        # Считаем общую сумму приходов
+        total_income = sum(entry.amount for entry in income_entries)
+
+        # Считаем общую сумму расходов
+        total_expenses = sum(entry.amount for entry in expense_entries)
+
+        # Считаем общую сумму эквайринга (все отмеченные "*" пункты)
+        total_acquiring = acquiring + qr_code + online_app + yandex_food
+
+        # Применяем формулу расчета
+        calculated_amount = total_revenue - returns + total_income - total_expenses - total_acquiring
+
+        # Определяем излишек/недостачу
+        surplus_shortage = fact_cash - calculated_amount
+
+        return {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "total_acquiring": total_acquiring,
+            "calculated_amount": calculated_amount,
+            "surplus_shortage": surplus_shortage
+        }
