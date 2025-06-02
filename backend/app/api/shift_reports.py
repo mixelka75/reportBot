@@ -40,7 +40,8 @@ async def create_shift_report(
         qr_code: Decimal = Form(default=0, description="QR код", example=1500.00, ge=0),
         online_app: Decimal = Form(default=0, description="Онлайн приложение", example=2000.00, ge=0),
         yandex_food: Decimal = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
-        fact_cash: Decimal = Form(..., description="Фактическая наличность", example=5100.50, ge=0),
+        fact_cash: Decimal = Form(..., description="Фактическая наличность", example=5100.50),
+
 
         # JSON поля
         income_entries_json: Optional[str] = Form(
