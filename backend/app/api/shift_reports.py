@@ -42,6 +42,7 @@ async def create_shift_report(
         yandex_food: Decimal = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
         fact_cash: Decimal = Form(..., description="Фактическая наличность", example=5100.50),
 
+
         # JSON поля
         income_entries_json: Optional[str] = Form(
             default=None,
