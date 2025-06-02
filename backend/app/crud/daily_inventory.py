@@ -1,3 +1,4 @@
+import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from ..schemas import DailyInventoryCreate
@@ -25,7 +26,7 @@ class DailyInventoryCrud:
         Telegram отправка происходит асинхронно.
         """
         try:
-            date = datetime.now(ZoneInfo("Europe/Moscow"))
+            date = datetime.now(pytz.timezone('Europe/Moscow'))
 
 
             # Создаем запись в БД
