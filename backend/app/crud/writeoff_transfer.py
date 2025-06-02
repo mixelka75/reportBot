@@ -30,6 +30,7 @@ class WriteoffTransferCRUD:
                 writeoffs_dict.append({
                     'name': writeoff.name,
                     'weight': float(writeoff.weight),
+                    'unit': writeoff.unit,
                     'reason': writeoff.reason
                 })
 
@@ -38,6 +39,7 @@ class WriteoffTransferCRUD:
                 transfers_dict.append({
                     'name': transfer.name,
                     'weight': float(transfer.weight),
+                    'unit': transfer.unit,
                     'reason': transfer.reason
                 })
 

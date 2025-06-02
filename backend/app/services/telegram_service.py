@@ -498,7 +498,10 @@ class TelegramService:
         if kuxnya:
             message += "🍳 <b>КУХНЯ:</b>\n"
             for item in kuxnya:
-                message += f"• {item.get('name', 'Не указано')}: <b>{item.get('count', 0)} шт</b>\n"
+                name = item.get('name', 'Не указано')
+                count = item.get('count', 0)
+                unit = item.get('unit', 'шт')
+                message += f"• {name} — <b>{count} {unit}</b>\n"
             message += "\n"
 
         # Бар
@@ -506,7 +509,10 @@ class TelegramService:
         if bar:
             message += "🍹 <b>БАР:</b>\n"
             for item in bar:
-                message += f"• {item.get('name', 'Не указано')}: <b>{item.get('count', 0)} шт</b>\n"
+                name = item.get('name', 'Не указано')
+                count = item.get('count', 0)
+                unit = item.get('unit', 'шт')
+                message += f"• {name} — <b>{count} {unit}</b>\n"
             message += "\n"
 
         # Упаковки/хоз
@@ -514,7 +520,10 @@ class TelegramService:
         if upakovki:
             message += "📦 <b>УПАКОВКИ/ХОЗ:</b>\n"
             for item in upakovki:
-                message += f"• {item.get('name', 'Не указано')}: <b>{item.get('count', 0)} шт</b>\n"
+                name = item.get('name', 'Не указано')
+                count = item.get('count', 0)
+                unit = item.get('unit', 'шт')
+                message += f"• {name} — <b>{count} {unit}</b>\n"
 
         return message
 
@@ -633,9 +642,11 @@ class TelegramService:
         if writeoffs:
             message += "🗑 <b>СПИСАНИЕ:</b>\n"
             for item in writeoffs:
-                weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
-                    int, float)) else f"{item.get('weight', 0)} шт"
-                message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
+                name = item.get('name', 'Не указано')
+                weight = item.get('weight', 0)
+                unit = item.get('unit', 'кг')
+                reason = item.get('reason', 'Не указано')
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
             message += "\n"
 
         # Перемещения
@@ -643,8 +654,10 @@ class TelegramService:
         if transfers:
             message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             for item in transfers:
-                weight_text = f"{item.get('weight', 0)} кг" if isinstance(item.get('weight'), (
-                    int, float)) else f"{item.get('weight', 0)} шт"
-                message += f"• {item.get('name', 'Не указано')} — <b>{weight_text}</b> — {item.get('reason', 'Не указано')}\n"
+                name = item.get('name', 'Не указано')
+                weight = item.get('weight', 0)
+                unit = item.get('unit', 'кг')
+                reason = item.get('reason', 'Не указано')
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
 
         return message

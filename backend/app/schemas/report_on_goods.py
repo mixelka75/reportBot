@@ -6,12 +6,14 @@ from pydantic import BaseModel, Field
 class KuxnyaJson(BaseModel):
     name: str = Field(..., description="Наименование товара", example="Мука пшеничная")
     count: int = Field(..., gt=0, description="Количество", example=5)
+    unit: str = Field(..., description="Единица измерения", example="кг")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "name": "Мука пшеничная",
-                "count": 5
+                "count": 5,
+                "unit": "кг"
             }
         }
 
@@ -19,12 +21,14 @@ class KuxnyaJson(BaseModel):
 class BarJson(BaseModel):
     name: str = Field(..., description="Наименование напитка", example="Кола 0.5л")
     count: int = Field(..., gt=0, description="Количество", example=24)
+    unit: str = Field(..., description="Единица измерения", example="шт")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "name": "Кола 0.5л",
-                "count": 24
+                "count": 24,
+                "unit": "шт"
             }
         }
 
@@ -32,12 +36,14 @@ class BarJson(BaseModel):
 class UpakovkyJson(BaseModel):
     name: str = Field(..., description="Наименование упаковки/хозтовара", example="Стаканы пластиковые")
     count: int = Field(..., gt=0, description="Количество", example=100)
+    unit: str = Field(..., description="Единица измерения", example="шт")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "name": "Стаканы пластиковые",
-                "count": 100
+                "count": 100,
+                "unit": "шт"
             }
         }
 
@@ -72,16 +78,16 @@ class ReportOnGoodsCreate(BaseModel):
             "example": {
                 "location": "Кафе Центральный",
                 "kuxnya": [
-                    {"name": "Мука пшеничная", "count": 5},
-                    {"name": "Масло подсолнечное", "count": 3}
+                    {"name": "Мука пшеничная", "count": 5, "unit": "кг"},
+                    {"name": "Масло подсолнечное", "count": 3, "unit": "л"}
                 ],
                 "bar": [
-                    {"name": "Кола 0.5л", "count": 24},
-                    {"name": "Сок яблочный", "count": 12}
+                    {"name": "Кола 0.5л", "count": 24, "unit": "шт"},
+                    {"name": "Сок яблочный", "count": 12, "unit": "шт"}
                 ],
                 "upakovki": [
-                    {"name": "Стаканы пластиковые", "count": 100},
-                    {"name": "Салфетки", "count": 50}
+                    {"name": "Стаканы пластиковые", "count": 100, "unit": "шт"},
+                    {"name": "Салфетки", "count": 50, "unit": "упаковка"}
                 ]
             }
         }
@@ -93,7 +99,6 @@ class ReportOnGoodsResponse(BaseModel):
     location: str = Field(description="Название локации")
     date: datetime = Field(description="Дата и время создания отчета")
 
-    # ИСПРАВЛЕНО: Dict[str, Any] вместо Dict[str, int]
     kuxnya: List[Dict[str, Any]] = Field(description="Список товаров для кухни")
     bar: List[Dict[str, Any]] = Field(description="Список товаров для бара")
     upakovki_xoz: List[Dict[str, Any]] = Field(description="Список упаковок и хозтоваров")
@@ -106,16 +111,16 @@ class ReportOnGoodsResponse(BaseModel):
                 "location": "Кафе Центральный",
                 "date": "2025-05-28T10:30:00Z",
                 "kuxnya": [
-                    {"name": "Мука пшеничная", "count": 5},
-                    {"name": "Масло подсолнечное", "count": 3}
+                    {"name": "Мука пшеничная", "count": 5, "unit": "кг"},
+                    {"name": "Масло подсолнечное", "count": 3, "unit": "л"}
                 ],
                 "bar": [
-                    {"name": "Кола 0.5л", "count": 24},
-                    {"name": "Сок яблочный", "count": 12}
+                    {"name": "Кола 0.5л", "count": 24, "unit": "шт"},
+                    {"name": "Сок яблочный", "count": 12, "unit": "шт"}
                 ],
                 "upakovki_xoz": [
-                    {"name": "Стаканы пластиковые", "count": 100},
-                    {"name": "Салфетки", "count": 50}
+                    {"name": "Стаканы пластиковые", "count": 100, "unit": "шт"},
+                    {"name": "Салфетки", "count": 50, "unit": "упаковка"}
                 ]
             }
         }

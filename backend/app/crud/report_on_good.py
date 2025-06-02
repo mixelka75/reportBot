@@ -18,6 +18,7 @@ class ReportOnGoodCRUD:
             kuxnya_dict.append({
                 'name': kux.name,
                 'count': int(kux.count),
+                'unit': kux.unit,
             })
 
         bar_dict = []
@@ -25,6 +26,7 @@ class ReportOnGoodCRUD:
             bar_dict.append({
                 'name': bar.name,
                 'count': int(bar.count),
+                'unit': bar.unit,
             })
 
         upakovki_dict = []
@@ -32,6 +34,7 @@ class ReportOnGoodCRUD:
             upakovki_dict.append({
                 'name': upakovki.name,
                 'count': int(upakovki.count),
+                'unit': upakovki.unit,
             })
 
         db_report = ReportOnGoods(

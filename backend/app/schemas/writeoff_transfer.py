@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 class WriteoffEntry(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Наименование товара", example="Курица жареная")
-    weight: float = Field(..., gt=0, description="Вес в кг", example=2.0)
+    weight: float = Field(..., gt=0, description="Вес/количество", example=2.0)
+    unit: str = Field(..., description="Единица измерения", example="кг")
     reason: str = Field(..., min_length=1, max_length=255, description="Причина порчи", example="Пересушена")
 
     class Config:
@@ -13,6 +14,7 @@ class WriteoffEntry(BaseModel):
             "example": {
                 "name": "Курица жареная",
                 "weight": 2.0,
+                "unit": "кг",
                 "reason": "Пересушена"
             }
         }
@@ -20,7 +22,8 @@ class WriteoffEntry(BaseModel):
 
 class TransferEntry(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Наименование товара", example="Вода Горная")
-    weight: float = Field(..., gt=0, description="Вес в кг", example=12.0)
+    weight: float = Field(..., gt=0, description="Вес/количество", example=12.0)
+    unit: str = Field(..., description="Единица измерения", example="кг")
     reason: str = Field(..., min_length=1, max_length=255, description="Причина перемещения",
                         example="На точку Гайдара")
 
@@ -29,6 +32,7 @@ class TransferEntry(BaseModel):
             "example": {
                 "name": "Вода Горная",
                 "weight": 12.0,
+                "unit": "кг",
                 "reason": "На точку Гайдара"
             }
         }
@@ -66,12 +70,12 @@ class WriteoffTransferCreate(BaseModel):
                 "location": "Абдулхакима Исмаилова 51",
                 "report_date": "2025-05-24",
                 "writeoffs": [
-                    {"name": "Курица жареная", "weight": 2.0, "reason": "Пересушена"},
-                    {"name": "Соус сырный", "weight": 1.0, "reason": "Истёк срок годности"}
+                    {"name": "Курица жареная", "weight": 2.0, "unit": "кг", "reason": "Пересушена"},
+                    {"name": "Соус сырный", "weight": 1.0, "unit": "кг", "reason": "Истёк срок годности"}
                 ],
                 "transfers": [
-                    {"name": "Вода Горная", "weight": 12.0, "reason": "На точку Гайдара"},
-                    {"name": "Лаваш", "weight": 6.0, "reason": "На точку Гагарина"}
+                    {"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"},
+                    {"name": "Лаваш", "weight": 6.0, "unit": "кг", "reason": "На точку Гагарина"}
                 ]
             }
         }
@@ -96,12 +100,12 @@ class WriteoffTransferResponse(BaseModel):
                 "report_date": "2025-05-24",
                 "created_date": "2025-05-24T10:30:00Z",
                 "writeoffs": [
-                    {"name": "Курица жареная", "weight": 2.0, "reason": "Пересушена"},
-                    {"name": "Соус сырный", "weight": 1.0, "reason": "Истёк срок годности"}
+                    {"name": "Курица жареная", "weight": 2.0, "unit": "кг", "reason": "Пересушена"},
+                    {"name": "Соус сырный", "weight": 1.0, "unit": "кг", "reason": "Истёк срок годности"}
                 ],
                 "transfers": [
-                    {"name": "Вода Горная", "weight": 12.0, "reason": "На точку Гайдара"},
-                    {"name": "Лаваш", "weight": 6.0, "reason": "На точку Гагарина"}
+                    {"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"},
+                    {"name": "Лаваш", "weight": 6.0, "unit": "кг", "reason": "На точку Гагарина"}
                 ]
             }
         }

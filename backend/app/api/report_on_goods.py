@@ -20,7 +20,7 @@ repg = ReportOnGoodCRUD()
 
     ## Структура данных
     Каждая категория принимается как JSON массив с объектами вида:
-    `{"name": "Название товара", "count": количество}`
+    `{"name": "Название товара", "count": количество, "unit": "единица измерения"}`
 
     ## Категории:
     - **Кухня** (kuxnya_json): продукты для приготовления блюд
@@ -36,9 +36,9 @@ repg = ReportOnGoodCRUD()
                         "id": 1,
                         "location": "Кафе Центральный",
                         "date": "2025-05-28T10:30:00Z",
-                        "kuxnya": [{"name": "Мука", "count": 10}],
-                        "bar": [{"name": "Кола", "count": 24}],
-                        "upakovki": [{"name": "Стаканы", "count": 100}]
+                        "kuxnya": [{"name": "Мука", "count": 10, "unit": "кг"}],
+                        "bar": [{"name": "Кола", "count": 24, "unit": "шт"}],
+                        "upakovki": [{"name": "Стаканы", "count": 100, "unit": "шт"}]
                     }
                 }
             }
@@ -54,7 +54,7 @@ repg = ReportOnGoodCRUD()
                         },
                         "missing_fields": {
                             "summary": "Отсутствующие поля",
-                            "value": {"detail": "Каждый элемент должен содержать 'name' и 'count'"}
+                            "value": {"detail": "Каждый элемент должен содержать 'name', 'count' и 'unit'"}
                         },
                         "negative_count": {
                             "summary": "Отрицательное количество",
@@ -81,9 +81,10 @@ async def create_report_on_goods(
 Каждый элемент должен содержать:
 - name: название товара (строка)
 - count: количество (положительное число)
+- unit: единица измерения (строка)
 
-Пример: [{"name": "Мука пшеничная", "count": 5}, {"name": "Масло подсолнечное", "count": 3}]""",
-            example='[{"name": "Мука пшеничная", "count": 5}, {"name": "Масло подсолнечное", "count": 3}]'
+Пример: [{"name": "Мука пшеничная", "count": 5, "unit": "кг"}, {"name": "Масло подсолнечное", "count": 3, "unit": "л"}]""",
+            example='[{"name": "Мука пшеничная", "count": 5, "unit": "кг"}, {"name": "Масло подсолнечное", "count": 3, "unit": "л"}]'
         ),
 
         bar_json: Optional[str] = Form(
@@ -93,9 +94,10 @@ async def create_report_on_goods(
 Каждый элемент должен содержать:
 - name: название товара (строка)
 - count: количество (положительное число)
+- unit: единица измерения (строка)
 
-Пример: [{"name": "Кола 0.5л", "count": 24}, {"name": "Сок яблочный", "count": 12}]""",
-            example='[{"name": "Кола 0.5л", "count": 24}, {"name": "Сок яблочный", "count": 12}]'
+Пример: [{"name": "Кола 0.5л", "count": 24, "unit": "шт"}, {"name": "Сок яблочный", "count": 12, "unit": "шт"}]""",
+            example='[{"name": "Кола 0.5л", "count": 24, "unit": "шт"}, {"name": "Сок яблочный", "count": 12, "unit": "шт"}]'
         ),
 
         upakovki_json: Optional[str] = Form(
@@ -105,9 +107,10 @@ async def create_report_on_goods(
 Каждый элемент должен содержать:
 - name: название товара (строка)
 - count: количество (положительное число)
+- unit: единица измерения (строка)
 
-Пример: [{"name": "Стаканы пластиковые", "count": 100}, {"name": "Салфетки", "count": 50}]""",
-            example='[{"name": "Стаканы пластиковые", "count": 100}, {"name": "Салфетки", "count": 50}]'
+Пример: [{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]""",
+            example='[{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]'
         ),
 
         db: AsyncSession = Depends(get_db),
@@ -146,6 +149,7 @@ async def create_report_on_goods(
     Все категории принимают массив объектов с полями:
     - `name`: название товара (обязательно)
     - `count`: количество штук (обязательно, > 0)
+    - `unit`: единица измерения (обязательно)
     """
     try:
         # Парсим товары для кухни
@@ -160,10 +164,10 @@ async def create_report_on_goods(
                     )
 
                 for item in kuxnya_data:
-                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item:
+                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item or 'unit' not in item:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Каждый элемент кухни должен содержать 'name' и 'count'"
+                            detail="Каждый элемент кухни должен содержать 'name', 'count' и 'unit'"
                         )
 
                     if not isinstance(item['count'], (int, float)) or item['count'] <= 0:
@@ -174,7 +178,8 @@ async def create_report_on_goods(
 
                     kuxnya_list.append(KuxnyaJson(
                         name=str(item['name']),
-                        count=int(item['count'])
+                        count=int(item['count']),
+                        unit=str(item['unit'])
                     ))
 
             except json.JSONDecodeError:
@@ -200,10 +205,10 @@ async def create_report_on_goods(
                     )
 
                 for item in bar_data:
-                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item:
+                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item or 'unit' not in item:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Каждый элемент бара должен содержать 'name' и 'count'"
+                            detail="Каждый элемент бара должен содержать 'name', 'count' и 'unit'"
                         )
 
                     if not isinstance(item['count'], (int, float)) or item['count'] <= 0:
@@ -214,7 +219,8 @@ async def create_report_on_goods(
 
                     bar_list.append(BarJson(
                         name=str(item['name']),
-                        count=int(item['count'])
+                        count=int(item['count']),
+                        unit=str(item['unit'])
                     ))
 
             except json.JSONDecodeError:
@@ -240,10 +246,10 @@ async def create_report_on_goods(
                     )
 
                 for item in upakovki_data:
-                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item:
+                    if not isinstance(item, dict) or 'name' not in item or 'count' not in item or 'unit' not in item:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Каждый элемент упаковок должен содержать 'name' и 'count'"
+                            detail="Каждый элемент упаковок должен содержать 'name', 'count' и 'unit'"
                         )
 
                     if not isinstance(item['count'], (int, float)) or item['count'] <= 0:
@@ -254,7 +260,8 @@ async def create_report_on_goods(
 
                     upakovky_list.append(UpakovkyJson(
                         name=str(item['name']),
-                        count=int(item['count'])
+                        count=int(item['count']),
+                        unit=str(item['unit'])
                     ))
 
             except json.JSONDecodeError:
