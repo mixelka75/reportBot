@@ -1719,7 +1719,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="кг/шт"
+                  placeholder="вес/количество"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('kitchen', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -1769,7 +1769,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="кг/шт"
+                  placeholder="вес/количество"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('bar', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -1819,7 +1819,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="кг/шт"
+                  placeholder="вес/количество"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('packaging', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -2088,7 +2088,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="кг/шт"
+                  placeholder="вес/количество"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -2140,7 +2140,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="кг/шт"
+                  placeholder="вес/количество"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
                   disabled={isLoading}
