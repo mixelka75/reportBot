@@ -24,9 +24,6 @@ app.add_middleware(
 # Подключаем API роуты
 app.include_router(api_router)
 
-# Подключаем статические файлы для мини-приложения
-app.mount("/mini-app", StaticFiles(directory="mini_app", html=True), name="mini-app")
-
 # Подключаем загрузки
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
