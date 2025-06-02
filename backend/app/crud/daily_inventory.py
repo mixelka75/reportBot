@@ -26,8 +26,7 @@ class DailyInventoryCrud:
         Telegram отправка происходит асинхронно.
         """
         try:
-
-            date = datetime.timezone(datetime.timedelta(hours=3))
+            date = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=3)))
 
 
             # Создаем запись в БД
