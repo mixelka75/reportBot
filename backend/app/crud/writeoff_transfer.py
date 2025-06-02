@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from ..schemas import WriteoffTransferCreate
-from ..models import WriteoffTransfer
-from ..services import TelegramService
+from app.schemas import WriteoffTransferCreate
+from app.models import WriteoffTransfer
+from app.services import TelegramService
 import asyncio
 
 

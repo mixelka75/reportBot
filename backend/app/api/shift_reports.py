@@ -5,9 +5,9 @@ import decimal
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from ..schemas import ShiftReportCreate, ShiftReportResponse, IncomeEntry, ExpenseEntry
-from ..crud import ShiftReportCRUD
-from ..core import get_db
+from app.schemas import ShiftReportCreate, ShiftReportResponse, IncomeEntry, ExpenseEntry
+from app.crud import ShiftReportCRUD
+from app.core import get_db
 
 router = APIRouter()
 shift_report_crud = ShiftReportCRUD()

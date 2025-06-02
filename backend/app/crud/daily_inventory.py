@@ -1,9 +1,9 @@
 import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from ..schemas import DailyInventoryCreate
-from ..models import DailyInventory
-from ..services import TelegramService
+from app.schemas import DailyInventoryCreate
+from app.models import DailyInventory
+from app.services import TelegramService
 import asyncio
 import datetime
 from zoneinfo import ZoneInfo

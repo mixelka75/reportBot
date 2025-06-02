@@ -2,10 +2,10 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from ..models import ShiftReport
-from ..schemas import ShiftReportCreate
-from ..services import ReportCalculator, TelegramService
-from ..services import FileService
+from app.models import ShiftReport
+from app.schemas import ShiftReportCreate
+from app.services import ReportCalculator, TelegramService
+from app.services import FileService
 from typing import Optional
 import asyncio
 from datetime import datetime
