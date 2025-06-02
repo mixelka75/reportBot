@@ -5,7 +5,7 @@ from ..schemas import DailyInventoryCreate
 from ..models import DailyInventory
 from ..services import TelegramService
 import asyncio
-from datetime import datetime
+import datetime
 from zoneinfo import ZoneInfo
 
 class DailyInventoryCrud:
@@ -26,7 +26,8 @@ class DailyInventoryCrud:
         Telegram отправка происходит асинхронно.
         """
         try:
-            date = datetime.now(pytz.timezone('Europe/Moscow'))
+
+            date = datetime.timezone(datetime.timedelta(hours=3))
 
 
             # Создаем запись в БД
