@@ -1585,7 +1585,8 @@ const TelegramWebApp = () => {
         const kuxnyaItems = formData.kitchen
           .filter(item => item.name && item.quantity && item.unit)
           .map(item => ({
-            name: `${item.name} (${item.unit})`,
+            name: item.name,
+            unit: item.unit,  // отдельное поле,
             count: parseInt(item.quantity)
           }));
 
@@ -1597,7 +1598,8 @@ const TelegramWebApp = () => {
         const barItems = formData.bar
           .filter(item => item.name && item.quantity && item.unit)
           .map(item => ({
-            name: `${item.name} (${item.unit})`,
+            name: item.name,
+            unit: item.unit,  // отдельное поле,
             count: parseInt(item.quantity)
           }));
 
@@ -1609,7 +1611,8 @@ const TelegramWebApp = () => {
         const upakovkiItems = formData.packaging
           .filter(item => item.name && item.quantity && item.unit)
           .map(item => ({
-            name: `${item.name} (${item.unit})`,
+            name: item.name,
+            unit: item.unit,  // отдельное поле,
             count: parseInt(item.quantity)
           }));
 
@@ -1962,7 +1965,8 @@ const TelegramWebApp = () => {
         const writeoffs = formData.writeOffs
           .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
-            name: `${item.name} (${item.unit})`,
+            name: item.name,
+unit: item.unit,  // отдельное поле,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
@@ -1975,7 +1979,8 @@ const TelegramWebApp = () => {
         const transfers = formData.transfers
           .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
-            name: `${item.name} (${item.unit})`,
+            name: item.name,
+unit: item.unit,  // отдельное поле,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
