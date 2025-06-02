@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Package, FileText, RotateCcw, Plus, CheckCircle, XCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 import { LOCATIONS } from './constants';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://miniapp-reportbot.yuuri.online';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Функция для конвертации File в base64
 const fileToBase64 = (file) => {
@@ -626,7 +626,7 @@ const TelegramWebApp = () => {
     </div>
   );
 
-  // Cashier Report Form
+  // Cashier Report Form - ИСПРАВЛЕНА ФОРМУЛА
   const CashierReportForm = () => {
     const [formData, setFormData] = useState({
       location: '',
@@ -643,6 +643,7 @@ const TelegramWebApp = () => {
         onlineApp: '',
         yandexEda: ''
       },
+      factCash: '', // ДОБАВЛЕНО: поле для фактической наличности
       photo: null
     });
 
@@ -662,7 +663,7 @@ const TelegramWebApp = () => {
           data.incomes.some(i => i.amount || i.comment) ||
           data.expenses.some(e => e.name || e.amount) ||
           Object.values(data.iikoData).some(v => v) ||
-          data.photo) {
+          data.factCash || data.photo) {
         await saveDraft('cashier', data);
       }
     }, [saveDraft]);
@@ -701,6 +702,7 @@ const TelegramWebApp = () => {
       }
     }, [validationErrors]);
 
+    // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ
     const calculateTotals = useMemo(() => {
       const totalIncome = formData.incomes.reduce((sum, item) =>
         sum + (parseFloat(item.amount) || 0), 0
@@ -708,15 +710,23 @@ const TelegramWebApp = () => {
       const totalExpenses = formData.expenses.reduce((sum, item) =>
         sum + (parseFloat(item.amount) || 0), 0
       );
-      const totalIiko = Object.values(formData.iikoData).reduce((sum, value) =>
-        sum + (parseFloat(value) || 0), 0
-      );
 
-      const calculatedAmount = totalIiko - totalExpenses + totalIncome;
-      const factualAmount = parseFloat(formData.iikoData.totalRevenue) || 0;
-      const difference = calculatedAmount - factualAmount;
+      // ИСПРАВЛЕНО: Итого эквайринг = все поля кроме общей выручки и возвратов
+      const totalAcquiring = (parseFloat(formData.iikoData.acquiring) || 0) +
+                            (parseFloat(formData.iikoData.qrCode) || 0) +
+                            (parseFloat(formData.iikoData.onlineApp) || 0) +
+                            (parseFloat(formData.iikoData.yandexEda) || 0);
 
-      return { totalIncome, totalExpenses, totalIiko, calculatedAmount, difference };
+      // ИСПРАВЛЕНО: ФОРМУЛА ПО ТЗ: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг)
+      const totalRevenue = parseFloat(formData.iikoData.totalRevenue) || 0;
+      const returns = parseFloat(formData.iikoData.returns) || 0;
+      const calculatedAmount = totalRevenue - returns + totalIncome - totalExpenses - totalAcquiring;
+
+      // ИСПРАВЛЕНО: Излишек/недостача = Факт наличные - Расчетная сумма
+      const factCash = parseFloat(formData.factCash) || 0;
+      const difference = factCash - calculatedAmount;
+
+      return { totalIncome, totalExpenses, totalAcquiring, calculatedAmount, difference, factCash };
     }, [formData]);
 
     const handleSubmit = useCallback(async () => {
@@ -729,6 +739,9 @@ const TelegramWebApp = () => {
       if (!formData.photo) errors.photo = 'Добавьте фотографию кассового отчёта';
       if (!formData.iikoData.totalRevenue || parseFloat(formData.iikoData.totalRevenue) <= 0) {
         errors.totalRevenue = 'Введите общую выручку больше 0';
+      }
+      if (!formData.factCash || parseFloat(formData.factCash) < 0) {
+        errors.factCash = 'Введите фактическую сумму наличных';
       }
 
       if (Object.keys(errors).length > 0) {
@@ -754,7 +767,9 @@ const TelegramWebApp = () => {
         apiFormData.append('qr_code', parseFloat(formData.iikoData.qrCode) || 0);
         apiFormData.append('online_app', parseFloat(formData.iikoData.onlineApp) || 0);
         apiFormData.append('yandex_food', parseFloat(formData.iikoData.yandexEda) || 0);
-        apiFormData.append('fact_cash', calculateTotals.calculatedAmount);
+
+        // ИСПРАВЛЕНО: Отправляем фактическую сумму наличных
+        apiFormData.append('fact_cash', parseFloat(formData.factCash) || 0);
 
         // Приходы (JSON)
         const incomeEntries = formData.incomes
@@ -786,7 +801,7 @@ const TelegramWebApp = () => {
       } finally {
         setIsLoading(false);
       }
-    }, [formData, calculateTotals, apiService, showNotification, showValidationErrors]);
+    }, [formData, apiService, showNotification, showValidationErrors]);
 
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -887,6 +902,7 @@ const TelegramWebApp = () => {
           {/* Income Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
+            <p className="text-sm text-gray-600 mb-3">5 полей в таком формате: Сумма - комментарий</p>
             {formData.incomes.map((income, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -921,6 +937,7 @@ const TelegramWebApp = () => {
           {/* Expenses Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
+            <p className="text-sm text-gray-600 mb-3">10 полей в таком формате: Текст — Сумма</p>
             {formData.expenses.map((expense, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -954,32 +971,137 @@ const TelegramWebApp = () => {
 
           {/* iiko Information */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">📱 Информация из iiko</h3>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">📱 iiko информация</h3>
             <div className="space-y-2">
-              {[
-                { key: 'totalRevenue', label: 'Общая выручка *', required: true },
-                { key: 'returns', label: 'Возврат' },
-                { key: 'acquiring', label: 'Эквайринг' },
-                { key: 'qrCode', label: 'QR-код' },
-                { key: 'onlineApp', label: 'Онлайн приложение' },
-                { key: 'yandexEda', label: 'Яндекс.Еда' }
-              ].map(item => (
-                <div key={item.key}>
-                  <MemoizedInput
-                    type="text"
-                    placeholder={item.label}
-                    value={formData.iikoData[item.key]}
-                    onChange={(e) => handleNumberInput(e, (value) =>
-                      handleInputChange(`iikoData.${item.key}`, value)
-                    )}
-                    disabled={isLoading}
-                    className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                    name={`iiko-${item.key}`}
-                    id={`iiko-${item.key}`}
-                    hasError={validationErrors.totalRevenue && item.key === 'totalRevenue'}
-                  />
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">Общая выручка: *</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Общая выручка"
+                  value={formData.iikoData.totalRevenue}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.totalRevenue`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-totalRevenue"
+                  id="iiko-totalRevenue"
+                  hasError={validationErrors.totalRevenue}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">Возвраты:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Возвраты"
+                  value={formData.iikoData.returns}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.returns`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-returns"
+                  id="iiko-returns"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Эквайринг:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Эквайринг"
+                  value={formData.iikoData.acquiring}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.acquiring`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-acquiring"
+                  id="iiko-acquiring"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*QR-код (запасной терминал QR):</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="QR-код"
+                  value={formData.iikoData.qrCode}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.qrCode`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-qrCode"
+                  id="iiko-qrCode"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Онлайн приложение:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Онлайн приложение"
+                  value={formData.iikoData.onlineApp}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.onlineApp`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-onlineApp"
+                  id="iiko-onlineApp"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Яндекс.Еда"
+                  value={formData.iikoData.yandexEda}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.yandexEda`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-yandexEda"
+                  id="iiko-yandexEda"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ИТОГОВЫЙ ОТЧЁТ */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-purple-600 mb-3">📊 ИТОГОВЫЙ ОТЧЁТ</h3>
+            <div className="space-y-3">
+              {/* Факт наличные - ДОБАВЛЕНО ПОЛЕ ДЛЯ ВВОДА */}
+              <div>
+                <label className="text-sm font-medium block mb-2 text-gray-700">
+                  Факт наличные: (кассир здесь укажет сам фактическую сумму наличных) *
+                </label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Введите фактическую сумму наличных"
+                  value={formData.factCash}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('factCash', value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="factCash"
+                  id="factCash"
+                  hasError={!!validationErrors.factCash}
+                />
+              </div>
+
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="text-sm text-purple-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Итого эквайринг:</span>
+                    <span className="font-semibold">{calculateTotals.totalAcquiring.toLocaleString()} ₽</span>
+                  </div>
+                  <div className="text-xs text-purple-600">
+                    (авто подсчёт всех пунктов которые отмечены "*")
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
@@ -987,7 +1109,7 @@ const TelegramWebApp = () => {
           <div className="mb-6">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <Camera size={16} className="text-purple-500" />
-              Фотография кассового отчёта *
+              Фотография кассового отчёта с iiko [обязательный пункт] *
             </label>
             <input
               type="file"
@@ -1017,16 +1139,23 @@ const TelegramWebApp = () => {
             )}
           </div>
 
-          {/* Calculation Results */}
+          {/* Calculation Results - ИСПРАВЛЕННАЯ ФОРМУЛА */}
           <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-600 mb-3">
               <Calculator size={20} />
-              Расчёт сверки
+              Авто подсчёт излишки или недостачи
             </h3>
             <div className="space-y-2 text-sm">
+              <div className="text-xs text-gray-600 mb-2">
+                ФОРМУЛА: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг) = сверка суммы фактический суммы
+              </div>
               <div className="flex justify-between text-gray-700">
                 <span>Расчетная сумма:</span>
                 <span className="font-semibold">{calculateTotals.calculatedAmount.toLocaleString()} ₽</span>
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Факт наличные:</span>
+                <span className="font-semibold">{calculateTotals.factCash.toLocaleString()} ₽</span>
               </div>
               <hr className="border-gray-300" />
               <div className={`flex justify-between font-bold ${calculateTotals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1066,7 +1195,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  Отправить
+                  ✅ Отправить отчёт
                 </>
               )}
             </button>
@@ -1076,7 +1205,7 @@ const TelegramWebApp = () => {
     );
   };
 
-  // Inventory Form
+  // Inventory Form - ИСПРАВЛЕНЫ НАЗВАНИЯ ТОВАРОВ
   const InventoryForm = () => {
     const [formData, setFormData] = useState({
       location: '',
@@ -1092,11 +1221,11 @@ const TelegramWebApp = () => {
         'Энергетики': '',
         'Колд Брю': '',
         'Kinza напитки': '',
-        'Паллы': '',
+        'Палпи': '', // ИСПРАВЛЕНО: было "Паллы"
         'Барбекю дип': '',
         'Булка на шаурму': '',
         'Лаваш': '',
-        'Лепешки': '',
+        'Лепешки': '', // ДОБАВЛЕНО: отдельный пункт
         'Кетчуп дип': '',
         'Сырный соус дип': '',
         'Курица жаренная': '',
@@ -1178,7 +1307,7 @@ const TelegramWebApp = () => {
         apiFormData.append('energetiky', parseInt(formData.items['Энергетики']) || 0);
         apiFormData.append('kold_bru', parseInt(formData.items['Колд Брю']) || 0);
         apiFormData.append('kinza_napitky', parseInt(formData.items['Kinza напитки']) || 0);
-        apiFormData.append('palli', parseInt(formData.items['Паллы']) || 0);
+        apiFormData.append('palli', parseInt(formData.items['Палпи']) || 0); // ИСПРАВЛЕНО
         apiFormData.append('barbeku_dip', parseInt(formData.items['Барбекю дип']) || 0);
         apiFormData.append('bulka_na_shaurmu', parseInt(formData.items['Булка на шаурму']) || 0);
         apiFormData.append('lavash', parseInt(formData.items['Лаваш']) || 0);
@@ -1224,7 +1353,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              Локация: выбор локации по кнопке *
+              📍Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -1248,7 +1377,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <Clock size={16} className="text-yellow-500" />
-              Смена: выбор по кнопке *
+              🌙 Смена: выбор по кнопке *
             </label>
             <div className="flex gap-2">
               {['Утро', 'Ночь'].map(shift => (
@@ -1270,7 +1399,7 @@ const TelegramWebApp = () => {
 
           {/* Date */}
           <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автоматически дата и время по мск)</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📆 Дата (автоматически дата и время по мск)</label>
             <input
               type="text"
               value={formData.date}
@@ -1281,7 +1410,7 @@ const TelegramWebApp = () => {
 
           {/* Conductor */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2 text-gray-700">👤 Кто провел *</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📊 Кто провел: [текст] *</label>
             <MemoizedInput
               type="text"
               value={formData.conductor}
@@ -1301,7 +1430,7 @@ const TelegramWebApp = () => {
             <div className="space-y-3">
               {Object.entries(formData.items).map(([item, value]) => (
                 <div key={item} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-300 shadow-sm">
-                  <span className="flex-1 text-sm text-gray-700">{item}:</span>
+                  <span className="flex-1 text-sm text-gray-700">{item} - [текст]</span>
                   <MemoizedInput
                     type="text"
                     value={value}
@@ -1349,7 +1478,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  Отправить отчёт
+                  ✅ Отправить отчёт
                 </>
               )}
             </button>
@@ -1359,11 +1488,11 @@ const TelegramWebApp = () => {
     );
   };
 
-  // Receiving Report Form
+  // Receiving Report Form - ИСПРАВЛЕНА ДАТА
   const ReceivingForm = () => {
     const [formData, setFormData] = useState({
       location: '',
-      date: getCurrentMSKTime(),
+      date: getCurrentDate(), // ИСПРАВЛЕНО: используем date picker вместо readonly
       kitchen: Array(15).fill({ name: '', quantity: '' }),
       bar: Array(10).fill({ name: '', quantity: '' }),
       packaging: Array(5).fill({ name: '', quantity: '' })
@@ -1514,7 +1643,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              Локация: выбор локации по кнопке *
+              📍Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -1534,21 +1663,22 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-          {/* Date */}
+          {/* Date - ИСПРАВЛЕНО: выбор даты */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Выбор даты</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
             <input
-              type="text"
+              type="date"
               value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+              onChange={(e) => handleInputChange('date', e.target.value)}
+              disabled={isLoading}
+              className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors"
             />
           </div>
 
           {/* Kitchen Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
-            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.kitchen.map((item, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -1581,14 +1711,14 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              Добавить еще
+              + добавить еще
             </button>
           </div>
 
           {/* Bar Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-blue-600 mb-3">🍺 Бар</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименование — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.bar.map((item, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -1621,7 +1751,7 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              Добавить еще
+              + добавить еще
             </button>
           </div>
 
@@ -1661,7 +1791,7 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              Добавить еще
+              + добавить еще
             </button>
           </div>
 
@@ -1695,7 +1825,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  Отправить отчёт
+                  ✅ кнопка отправить отчёт
                 </>
               )}
             </button>
@@ -1705,11 +1835,11 @@ const TelegramWebApp = () => {
     );
   };
 
-  // Write-off Form
+  // Write-off Form - ИСПРАВЛЕНА ДАТА И ДОБАВЛЕНЫ ПРАВИЛЬНЫЕ ПОЛЯ
   const WriteOffForm = () => {
     const [formData, setFormData] = useState({
       location: '',
-      date: getCurrentDate(),
+      date: getCurrentDate(), // ИСПРАВЛЕНО: выбор даты
       writeOffs: Array(10).fill({ name: '', weight: '', reason: '' }),
       transfers: Array(10).fill({ name: '', weight: '', reason: '' })
     });
@@ -1850,7 +1980,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              Локация: выбор локации по кнопке *
+              📍Локация: выбор локации по кнопке *
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -1870,9 +2000,9 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-          {/* Date */}
+          {/* Date - ИСПРАВЛЕНО: выбор даты согласно ТЗ */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата отчета</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
             <input
               type="date"
               value={formData.date}
@@ -1884,13 +2014,13 @@ const TelegramWebApp = () => {
 
           {/* Write-offs Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес (кг) — причина порчи</p>
+            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ списания</h3>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — причина порчи</p>
             {formData.writeOffs.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
                   type="text"
-                  placeholder="Название"
+                  placeholder="наименования"
                   value={item.name}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
                   disabled={isLoading}
@@ -1900,7 +2030,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Вес (кг)"
+                  placeholder="вес"
                   value={item.weight}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleArrayChange('writeOffs', index, 'weight', value)
@@ -1912,7 +2042,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Причина"
+                  placeholder="причина порчи"
                   value={item.reason}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
                   disabled={isLoading}
@@ -1926,13 +2056,13 @@ const TelegramWebApp = () => {
 
           {/* Transfers Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещение</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес (кг) — причина перемещения</p>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ перемещения</h3>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — причина перемещения</p>
             {formData.transfers.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
                   type="text"
-                  placeholder="Название"
+                  placeholder="наименования"
                   value={item.name}
                   onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
                   disabled={isLoading}
@@ -1942,7 +2072,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Вес (кг)"
+                  placeholder="вес"
                   value={item.weight}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleArrayChange('transfers', index, 'weight', value)
@@ -1954,7 +2084,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Причина"
+                  placeholder="причина перемещения"
                   value={item.reason}
                   onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
@@ -1996,7 +2126,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  Отправить отчёт
+                  ✅ кнопка отправить отчёт
                 </>
               )}
             </button>
