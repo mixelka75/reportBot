@@ -70,6 +70,7 @@ async def create_shift_report(
     Если есть проблемы с Telegram, отчет все равно будет создан в БД.
     """
     try:
+
         # Парсим и валидируем входные данные
         income_entries = _parse_income_entries(income_entries_json)
         expense_entries = _parse_expense_entries(expense_entries_json)

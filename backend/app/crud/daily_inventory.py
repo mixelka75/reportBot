@@ -4,7 +4,8 @@ from ..schemas import DailyInventoryCreate
 from ..models import DailyInventory
 from ..services import TelegramService
 import asyncio
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 class DailyInventoryCrud:
     def __init__(self):
@@ -24,12 +25,18 @@ class DailyInventoryCrud:
         Telegram отправка происходит асинхронно.
         """
         try:
+            utc_now = datetime.now(ZoneInfo("UTC"))
+
+            # Конвертация в московское время (Europe/Moscow)
+            date = utc_now.astimezone(ZoneInfo("Europe/Moscow"))
+
+
             # Создаем запись в БД
             db_daily_inventory = DailyInventory(
                 location=daily_data.location,
                 shift_type=daily_data.shift_type,
+                date=date,
                 cashier_name=daily_data.cashier_name,
-
                 il_primo_steklo=daily_data.il_primo_steklo,
                 voda_gornaya=daily_data.voda_gornaya,
                 dobri_sok_pet=daily_data.dobri_sok_pet,

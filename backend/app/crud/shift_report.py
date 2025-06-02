@@ -8,7 +8,8 @@ from ..services import ReportCalculator, TelegramService
 from ..services import FileService
 from typing import Optional
 import asyncio
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 class ShiftReportCRUD:
     def __init__(self):
@@ -52,6 +53,12 @@ class ShiftReportCRUD:
         db_report = None
 
         try:
+
+            utc_now = datetime.now(ZoneInfo("UTC"))
+
+            # Конвертация в московское время (Europe/Moscow)
+            date = utc_now.astimezone(ZoneInfo("Europe/Moscow"))
+
             # Сохраняем фото
             photo_path = self.file_service.save_shift_report_photo(photo)
 
@@ -87,6 +94,7 @@ class ShiftReportCRUD:
             db_report = ShiftReport(
                 location=report_data.location,
                 shift_type=report_data.shift_type,
+                date=date,
                 cashier_name=report_data.cashier_name,
                 income_entries=income_entries_dict,
                 expense_entries=expense_entries_dict,

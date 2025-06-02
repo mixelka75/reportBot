@@ -76,6 +76,7 @@ class ShiftReportCreate(BaseModel):
         StringConstraints(pattern=r"^(morning|night)$")
     ] = Field(description="Тип смены", example="morning")
 
+
     cashier_name: str = Field(
         ...,
         min_length=1,
