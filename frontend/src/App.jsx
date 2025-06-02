@@ -427,7 +427,8 @@ const TelegramWebApp = () => {
   // Автозаполнение даты по МСК
   const getCurrentMSKTime = useCallback(() => {
     const now = new Date();
-    const mskTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    // Создаем дату в московском времени
+    const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
     return mskTime.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -437,10 +438,11 @@ const TelegramWebApp = () => {
     });
   }, []);
 
-  // Получение даты в формате YYYY-MM-DD
+  // Получение даты в формате YYYY-MM-DD по МСК
   const getCurrentDate = useCallback(() => {
     const now = new Date();
-    const mskTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    // Создаем дату в московском времени
+    const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
     return mskTime.toISOString().split('T')[0];
   }, []);
 
@@ -937,19 +939,9 @@ const TelegramWebApp = () => {
           {/* Expenses Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
-            <p className="text-sm text-gray-600 mb-3">10 полей в таком формате: Текст — Сумма</p>
+            <p className="text-sm text-gray-600 mb-3">10 полей в таком формате: Сумма — Текст</p>
             {formData.expenses.map((expense, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Текст"
-                  value={expense.name}
-                  onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
-                  name={`expense-name-${index}`}
-                  id={`expense-name-${index}`}
-                />
                 <MemoizedInput
                   type="text"
                   placeholder="Сумма"
@@ -961,6 +953,16 @@ const TelegramWebApp = () => {
                   className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
                   name={`expense-amount-${index}`}
                   id={`expense-amount-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="Текст"
+                  value={expense.name}
+                  onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`expense-name-${index}`}
+                  id={`expense-name-${index}`}
                 />
               </div>
             ))}
@@ -1488,14 +1490,14 @@ const TelegramWebApp = () => {
     );
   };
 
-  // Receiving Report Form - ИСПРАВЛЕНА ДАТА
+  // Receiving Report Form - ИСПРАВЛЕНА ДАТА И ДОБАВЛЕНЫ ЕДИНИЦЫ ИЗМЕРЕНИЯ
   const ReceivingForm = () => {
     const [formData, setFormData] = useState({
       location: '',
       date: getCurrentDate(), // ИСПРАВЛЕНО: используем date picker вместо readonly
-      kitchen: Array(15).fill({ name: '', quantity: '' }),
-      bar: Array(10).fill({ name: '', quantity: '' }),
-      packaging: Array(5).fill({ name: '', quantity: '' })
+      kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }),
+      bar: Array(10).fill({ name: '', quantity: '', unit: '' }),
+      packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
     });
 
     // Загружаем черновик при инициализации
@@ -1510,9 +1512,9 @@ const TelegramWebApp = () => {
 
     // Функция для автосохранения
     const autoSaveFunction = useCallback(async (data) => {
-      const hasKitchenItems = data.kitchen.some(item => item.name || item.quantity);
-      const hasBarItems = data.bar.some(item => item.name || item.quantity);
-      const hasPackagingItems = data.packaging.some(item => item.name || item.quantity);
+      const hasKitchenItems = data.kitchen.some(item => item.name || item.quantity || item.unit);
+      const hasBarItems = data.bar.some(item => item.name || item.quantity || item.unit);
+      const hasPackagingItems = data.packaging.some(item => item.name || item.quantity || item.unit);
 
       if (data.location || hasKitchenItems || hasBarItems || hasPackagingItems) {
         await saveDraft('receiving', data);
@@ -1546,7 +1548,7 @@ const TelegramWebApp = () => {
     const addArrayItem = useCallback((arrayName) => {
       setFormData(prev => ({
         ...prev,
-        [arrayName]: [...prev[arrayName], { name: '', quantity: '' }]
+        [arrayName]: [...prev[arrayName], { name: '', quantity: '', unit: '' }]
       }));
     }, []);
 
@@ -1557,12 +1559,12 @@ const TelegramWebApp = () => {
       if (!formData.location) errors.location = 'Выберите локацию';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
-      const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity);
-      const hasBarItems = formData.bar.some(item => item.name && item.quantity);
-      const hasPackagingItems = formData.packaging.some(item => item.name && item.quantity);
+      const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity && item.unit);
+      const hasBarItems = formData.bar.some(item => item.name && item.quantity && item.unit);
+      const hasPackagingItems = formData.packaging.some(item => item.name && item.quantity && item.unit);
 
       if (!hasKitchenItems && !hasBarItems && !hasPackagingItems) {
-        errors.items = 'Заполните хотя бы одну позицию товара';
+        errors.items = 'Заполните хотя бы одну позицию товара (название + количество + единица измерения)';
       }
 
       if (Object.keys(errors).length > 0) {
@@ -1581,8 +1583,11 @@ const TelegramWebApp = () => {
 
         // Кухня
         const kuxnyaItems = formData.kitchen
-          .filter(item => item.name && item.quantity)
-          .map(item => ({ name: item.name, count: parseInt(item.quantity) }));
+          .filter(item => item.name && item.quantity && item.unit)
+          .map(item => ({
+            name: `${item.name} (${item.unit})`,
+            count: parseInt(item.quantity)
+          }));
 
         if (kuxnyaItems.length > 0) {
           apiFormData.append('kuxnya_json', JSON.stringify(kuxnyaItems));
@@ -1590,8 +1595,11 @@ const TelegramWebApp = () => {
 
         // Бар
         const barItems = formData.bar
-          .filter(item => item.name && item.quantity)
-          .map(item => ({ name: item.name, count: parseInt(item.quantity) }));
+          .filter(item => item.name && item.quantity && item.unit)
+          .map(item => ({
+            name: `${item.name} (${item.unit})`,
+            count: parseInt(item.quantity)
+          }));
 
         if (barItems.length > 0) {
           apiFormData.append('bar_json', JSON.stringify(barItems));
@@ -1599,8 +1607,11 @@ const TelegramWebApp = () => {
 
         // Упаковки
         const upakovkiItems = formData.packaging
-          .filter(item => item.name && item.quantity)
-          .map(item => ({ name: item.name, count: parseInt(item.quantity) }));
+          .filter(item => item.name && item.quantity && item.unit)
+          .map(item => ({
+            name: `${item.name} (${item.unit})`,
+            count: parseInt(item.quantity)
+          }));
 
         if (upakovkiItems.length > 0) {
           apiFormData.append('upakovki_json', JSON.stringify(upakovkiItems));
@@ -1678,16 +1689,16 @@ const TelegramWebApp = () => {
           {/* Kitchen Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
-            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.kitchen.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-2 mb-2">
+              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
                   onChange={(e) => handleArrayChange('kitchen', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`kitchen-name-${index}`}
                   id={`kitchen-name-${index}`}
                 />
@@ -1699,9 +1710,19 @@ const TelegramWebApp = () => {
                     handleArrayChange('kitchen', index, 'quantity', value)
                   )}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`kitchen-quantity-${index}`}
                   id={`kitchen-quantity-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="кг/шт"
+                  value={item.unit}
+                  onChange={(e) => handleArrayChange('kitchen', index, 'unit', e.target.value)}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
+                  name={`kitchen-unit-${index}`}
+                  id={`kitchen-unit-${index}`}
                 />
               </div>
             ))}
@@ -1718,16 +1739,16 @@ const TelegramWebApp = () => {
           {/* Bar Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-blue-600 mb-3">🍺 Бар</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.bar.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-2 mb-2">
+              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
                   onChange={(e) => handleArrayChange('bar', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`bar-name-${index}`}
                   id={`bar-name-${index}`}
                 />
@@ -1739,9 +1760,19 @@ const TelegramWebApp = () => {
                     handleArrayChange('bar', index, 'quantity', value)
                   )}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`bar-quantity-${index}`}
                   id={`bar-quantity-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="кг/шт"
+                  value={item.unit}
+                  onChange={(e) => handleArrayChange('bar', index, 'unit', e.target.value)}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
+                  name={`bar-unit-${index}`}
+                  id={`bar-unit-${index}`}
                 />
               </div>
             ))}
@@ -1758,16 +1789,16 @@ const TelegramWebApp = () => {
           {/* Packaging Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-green-600 mb-3">📦 Упаковки/хоз</h3>
-            <p className="text-sm text-gray-600 mb-3">5 пунктов &gt; Наименования — количество<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">5 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
             {formData.packaging.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-2 mb-2">
+              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
                   onChange={(e) => handleArrayChange('packaging', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`packaging-name-${index}`}
                   id={`packaging-name-${index}`}
                 />
@@ -1779,9 +1810,19 @@ const TelegramWebApp = () => {
                     handleArrayChange('packaging', index, 'quantity', value)
                   )}
                   disabled={isLoading}
-                  className="p-3 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
                   name={`packaging-quantity-${index}`}
                   id={`packaging-quantity-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="кг/шт"
+                  value={item.unit}
+                  onChange={(e) => handleArrayChange('packaging', index, 'unit', e.target.value)}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
+                  name={`packaging-unit-${index}`}
+                  id={`packaging-unit-${index}`}
                 />
               </div>
             ))}
@@ -1835,13 +1876,13 @@ const TelegramWebApp = () => {
     );
   };
 
-  // Write-off Form - ИСПРАВЛЕНА ДАТА И ДОБАВЛЕНЫ ПРАВИЛЬНЫЕ ПОЛЯ
+  // Write-off Form - ИСПРАВЛЕНА ДАТА И ДОБАВЛЕНЫ ЕДИНИЦЫ ИЗМЕРЕНИЯ
   const WriteOffForm = () => {
     const [formData, setFormData] = useState({
       location: '',
       date: getCurrentDate(), // ИСПРАВЛЕНО: выбор даты
-      writeOffs: Array(10).fill({ name: '', weight: '', reason: '' }),
-      transfers: Array(10).fill({ name: '', weight: '', reason: '' })
+      writeOffs: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }),
+      transfers: Array(10).fill({ name: '', weight: '', unit: '', reason: '' })
     });
 
     // Загружаем черновик при инициализации
@@ -1856,8 +1897,8 @@ const TelegramWebApp = () => {
 
     // Функция для автосохранения
     const autoSaveFunction = useCallback(async (data) => {
-      const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.reason);
-      const hasTransfers = data.transfers.some(item => item.name || item.weight || item.reason);
+      const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.unit || item.reason);
+      const hasTransfers = data.transfers.some(item => item.name || item.weight || item.unit || item.reason);
 
       if (data.location || hasWriteOffs || hasTransfers) {
         await saveDraft('writeoff', data);
@@ -1895,11 +1936,11 @@ const TelegramWebApp = () => {
       if (!formData.location) errors.location = 'Выберите локацию';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
-      const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.reason);
-      const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.reason);
+      const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.unit && item.reason);
+      const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.unit && item.reason);
 
       if (!hasWriteOffs && !hasTransfers) {
-        errors.items = 'Заполните хотя бы одну позицию списания или перемещения';
+        errors.items = 'Заполните хотя бы одну позицию списания или перемещения (название + вес + единица + причина)';
       }
 
       if (Object.keys(errors).length > 0) {
@@ -1919,9 +1960,9 @@ const TelegramWebApp = () => {
 
         // Списания
         const writeoffs = formData.writeOffs
-          .filter(item => item.name && item.weight && item.reason)
+          .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
-            name: item.name,
+            name: `${item.name} (${item.unit})`,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
@@ -1932,9 +1973,9 @@ const TelegramWebApp = () => {
 
         // Перемещения
         const transfers = formData.transfers
-          .filter(item => item.name && item.weight && item.reason)
+          .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
-            name: item.name,
+            name: `${item.name} (${item.unit})`,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
@@ -2015,16 +2056,16 @@ const TelegramWebApp = () => {
           {/* Write-offs Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ списания</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — причина порчи</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — единица (кг/шт) — причина порчи</p>
             {formData.writeOffs.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
+              <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="наименования"
                   value={item.name}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`writeoff-name-${index}`}
                   id={`writeoff-name-${index}`}
                 />
@@ -2036,9 +2077,19 @@ const TelegramWebApp = () => {
                     handleArrayChange('writeOffs', index, 'weight', value)
                   )}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`writeoff-weight-${index}`}
                   id={`writeoff-weight-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="кг/шт"
+                  value={item.unit}
+                  onChange={(e) => handleArrayChange('writeOffs', index, 'unit', e.target.value)}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`writeoff-unit-${index}`}
+                  id={`writeoff-unit-${index}`}
                 />
                 <MemoizedInput
                   type="text"
@@ -2046,7 +2097,7 @@ const TelegramWebApp = () => {
                   value={item.reason}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`writeoff-reason-${index}`}
                   id={`writeoff-reason-${index}`}
                 />
@@ -2057,16 +2108,16 @@ const TelegramWebApp = () => {
           {/* Transfers Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ перемещения</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — причина перемещения</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — единица (кг/шт) — причина перемещения</p>
             {formData.transfers.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
+              <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="наименования"
                   value={item.name}
                   onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`transfer-name-${index}`}
                   id={`transfer-name-${index}`}
                 />
@@ -2078,9 +2129,19 @@ const TelegramWebApp = () => {
                     handleArrayChange('transfers', index, 'weight', value)
                   )}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`transfer-weight-${index}`}
                   id={`transfer-weight-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="кг/шт"
+                  value={item.unit}
+                  onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`transfer-unit-${index}`}
+                  id={`transfer-unit-${index}`}
                 />
                 <MemoizedInput
                   type="text"
@@ -2088,7 +2149,7 @@ const TelegramWebApp = () => {
                   value={item.reason}
                   onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm disabled:opacity-50 transition-colors"
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
                   name={`transfer-reason-${index}`}
                   id={`transfer-reason-${index}`}
                 />
