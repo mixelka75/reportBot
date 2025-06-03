@@ -8,7 +8,7 @@ class ShiftReport(Base):
     id = Column(Integer, primary_key=True, index=True)
     location = Column(String(255), nullable=False)
     shift_type = Column(String(20), nullable=False)  # "morning" или "night"
-    date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    date = Column(DateTime(timezone=True),nullable=False)
     cashier_name = Column(String(255), nullable=False)
 
     # Приходы денег/внесения (максимум 5 полей)

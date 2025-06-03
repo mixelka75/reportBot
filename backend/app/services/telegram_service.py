@@ -340,7 +340,7 @@ class TelegramService:
             message = self._format_daily_inventory_message(report_data)
 
             # Отправляем сообщение
-            success = await self._send_message(report_data.get('location'), message, topic_id)
+            success = await self._send_message(self.chat_id, message, topic_id)
 
             if success:
                 print(f"✅ Отчет инвентаризации отправлен в Telegram для локации: {report_data.get('location')}")
@@ -434,7 +434,7 @@ class TelegramService:
         surplus_shortage = data.get('surplus_shortage', 0)
 
         message += f"""🧮 <b>РАСЧЁТ СВЕРКИ:</b>
-<code>({data.get('total_revenue', 0)} - {data.get('returns', 0)} + {data.get('total_income', 0)} - {data.get('total_expenses', 0)} - {data.get('total_acquiring', 0)}) = {calculated:,.2f}₽</code>
+{calculated//1}₽
 
 💵 <b>Фактически в кассе:</b> <b>{fact_cash:,.2f}₽</b>
 🧮 <b>Расчетная сумма:</b> <b>{calculated:,.2f}₽</b>
@@ -643,10 +643,10 @@ class TelegramService:
             message += "🗑 <b>СПИСАНИЕ:</b>\n"
             for item in writeoffs:
                 name = item.get('name', 'Не указано')
-                weight = item.get('weight', 0)
+                weight = item.get('weight', 0)//1
                 unit = item.get('unit', 'кг')
                 reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+                message += f"• {name} — <b>{weight//1} {unit}</b> — {reason}\n"
             message += "\n"
 
         # Перемещения
@@ -655,9 +655,9 @@ class TelegramService:
             message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             for item in transfers:
                 name = item.get('name', 'Не указано')
-                weight = item.get('weight', 0)
+                weight = item.get('weight', 0)//1
                 unit = item.get('unit', 'кг')
                 reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+                message += f"• {name} — <b>{weight//1} {unit}</b> — {reason}\n"
 
         return message

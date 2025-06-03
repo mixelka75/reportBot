@@ -1432,7 +1432,7 @@ const TelegramWebApp = () => {
             <div className="space-y-3">
               {Object.entries(formData.items).map(([item, value]) => (
                 <div key={item} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-300 shadow-sm">
-                  <span className="flex-1 text-sm text-gray-700">{item} - [текст]</span>
+                  <span className="flex-1 text-sm text-gray-700">{item}</span>
                   <MemoizedInput
                     type="text"
                     value={value}
@@ -2061,12 +2061,12 @@ unit: item.unit,  // отдельное поле,
           {/* Write-offs Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ списания</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — единица (кг/шт) — причина порчи</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
             {formData.writeOffs.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
                   type="text"
-                  placeholder="наименования"
+                  placeholder="Наименование"
                   value={item.name}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
                   disabled={isLoading}
@@ -2076,7 +2076,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес"
+                  placeholder="Количество"
                   value={item.weight}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleArrayChange('writeOffs', index, 'weight', value)
@@ -2088,7 +2088,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес/количество"
+                  placeholder="кг/шт"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -2098,7 +2098,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="причина порчи"
+                  placeholder="Причина"
                   value={item.reason}
                   onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
                   disabled={isLoading}
@@ -2113,12 +2113,12 @@ unit: item.unit,  // отдельное поле,
           {/* Transfers Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ перемещения</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />наименования — вес — единица (кг/шт) — причина перемещения</p>
+            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
             {formData.transfers.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
                   type="text"
-                  placeholder="наименования"
+                  placeholder="Наименование"
                   value={item.name}
                   onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
                   disabled={isLoading}
@@ -2128,7 +2128,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес"
+                  placeholder="Количество"
                   value={item.weight}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleArrayChange('transfers', index, 'weight', value)
@@ -2140,7 +2140,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес/количество"
+                  placeholder="кг/шт"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -2150,7 +2150,7 @@ unit: item.unit,  // отдельное поле,
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="причина перемещения"
+                  placeholder="Причина"
                   value={item.reason}
                   onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
