@@ -303,7 +303,7 @@ class TelegramService:
             print(f"❌ Ошибка получения информации о веб-хуке: {str(e)}")
             return {}
 
-    # Остальные методы (отправка отчетов) остаются без изменений
+    # Остальные методы (отправка отчетов) с обновленной поддержкой новых полей
     async def send_shift_report(self, report_data: Dict[str, Any], photo_path: str) -> bool:
         """Отправляет отчет смены в Telegram"""
         if not self.enabled:
@@ -385,7 +385,7 @@ class TelegramService:
             return False
 
     def _format_shift_report_message(self, data: Dict[str, Any]) -> str:
-        """Форматирует сообщение отчета смены"""
+        """Форматирует сообщение отчета смены - ОБНОВЛЕНО с новыми полями"""
         shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
 
         message = f"""📊 <b>ОТЧЁТ ЗАВЕРШЕНИЯ СМЕНЫ</b> {shift_emoji}
@@ -404,6 +404,8 @@ class TelegramService:
 - QR код: <b>{int(data.get('qr_code', 0))}₽</b>
 - Онлайн приложение: <b>{int(data.get('online_app', 0))}₽</b>
 - Яндекс Еда: <b>{int(data.get('yandex_food', 0))}₽</b>
+- Яндекс Еда (не в системе): <b>{int(data.get('yandex_food_no_system', 0))}₽</b>
+- Primehill: <b>{int(data.get('primehill', 0))}₽</b>
 - <b>Итого эквайринг: {int(data.get('total_acquiring', 0))}₽</b>
 
 📈 <b>ПРИХОДЫ:</b>
