@@ -22,16 +22,16 @@ class ReportCalculator:
         Формула: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг)
         """
         # Считаем общую сумму приходов
-        total_income = (sum(entry.amount for entry in income_entries))//1
+        total_income = round((sum(entry.amount for entry in income_entries)),0)//1
 
         # Считаем общую сумму расходов
-        total_expenses = (sum(entry.amount for entry in expense_entries))//1
+        total_expenses = round((sum(entry.amount for entry in expense_entries)), 0)//1
 
         # Считаем общую сумму эквайринга (все отмеченные "*" пункты)
-        total_acquiring = (acquiring + qr_code + online_app + yandex_food)//1
+        total_acquiring = round((acquiring + qr_code + online_app + yandex_food),0)//1
 
         # Применяем формулу расчета
-        calculated_amount = (total_revenue - returns + total_income - total_expenses - total_acquiring)//1
+        calculated_amount = round((total_revenue - returns + total_income - total_expenses - total_acquiring),0)//1
 
         # Определяем излишек/недостачу
         surplus_shortage = (fact_cash - calculated_amount)//1

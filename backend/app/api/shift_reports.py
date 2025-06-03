@@ -1,7 +1,5 @@
-from decimal import Decimal
 from typing import Optional, List
 import json
-import decimal
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
@@ -34,13 +32,13 @@ async def create_shift_report(
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
 
         # Финансовые данные
-        total_revenue: Decimal = Form(..., description="Общая выручка", example=15000.50, ge=0),
-        returns: Decimal = Form(default=0, description="Возвраты", example=200.00, ge=0),
-        acquiring: Decimal = Form(default=0, description="Эквайринг", example=5000.00, ge=0),
-        qr_code: Decimal = Form(default=0, description="QR код", example=1500.00, ge=0),
-        online_app: Decimal = Form(default=0, description="Онлайн приложение", example=2000.00, ge=0),
-        yandex_food: Decimal = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
-        fact_cash: Decimal = Form(..., description="Фактическая наличность", example=5100.50),
+        total_revenue: int = Form(..., description="Общая выручка", example=15000.50, ge=0),
+        returns: int = Form(default=0, description="Возвраты", example=200.00, ge=0),
+        acquiring: int = Form(default=0, description="Эквайринг", example=5000.00, ge=0),
+        qr_code: int = Form(default=0, description="QR код", example=1500.00, ge=0),
+        online_app: int = Form(default=0, description="Онлайн приложение", example=2000.00, ge=0),
+        yandex_food: int = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
+        fact_cash: int = Form(..., description="Фактическая наличность", example=5100.50),
 
 
         # JSON поля
@@ -146,7 +144,7 @@ def _parse_income_entries(income_entries_json: Optional[str]) -> List[IncomeEntr
                     )
 
                 try:
-                    amount = Decimal(str(item['amount']))
+                    amount = int(str(item['amount']))
                     if amount <= 0:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -157,7 +155,7 @@ def _parse_income_entries(income_entries_json: Optional[str]) -> List[IncomeEntr
                         amount=amount,
                         comment=str(item['comment'])
                     ))
-                except (ValueError, TypeError, decimal.InvalidOperation):
+                except (ValueError, TypeError, int.InvalidOperation):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Некорректная сумма в приходе: {item.get('amount')}"
@@ -192,7 +190,7 @@ def _parse_expense_entries(expense_entries_json: Optional[str]) -> List[ExpenseE
                     )
 
                 try:
-                    amount = Decimal(str(item['amount']))
+                    amount = int(str(item['amount']))
                     if amount <= 0:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -203,7 +201,7 @@ def _parse_expense_entries(expense_entries_json: Optional[str]) -> List[ExpenseE
                         description=str(item['description']),
                         amount=amount
                     ))
-                except (ValueError, TypeError, decimal.InvalidOperation):
+                except (ValueError, TypeError, int.InvalidOperation):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Некорректная сумма в расходе: {item.get('amount')}"

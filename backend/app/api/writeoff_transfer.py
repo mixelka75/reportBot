@@ -114,7 +114,7 @@ async def create_writeoff_transfer(
 
                     writeoffs_list.append(WriteoffEntry(
                         name=str(item['name']),
-                        weight=float(item['weight']),
+                        weight=round(item['weight'], 0)//1,
                         unit=str(item['unit']),
                         reason=str(item['reason'])
                     ))
@@ -156,7 +156,7 @@ async def create_writeoff_transfer(
 
                     transfers_list.append(TransferEntry(
                         name=str(item['name']),
-                        weight=float(item['weight']),
+                        weight=round(item['weight'], 0)//1,
                         unit=str(item['unit']),
                         reason=str(item['reason'])
                     ))

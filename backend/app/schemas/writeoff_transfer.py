@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class WriteoffEntry(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Наименование товара", example="Курица жареная")
-    weight: float = Field(..., gt=0, description="Вес/количество", example=2.0)
+    weight: int = Field(..., gt=0, description="Вес/количество", example=12)
     unit: str = Field(..., description="Единица измерения", example="кг")
     reason: str = Field(..., min_length=1, max_length=255, description="Причина порчи", example="Пересушена")
 
@@ -22,7 +22,7 @@ class WriteoffEntry(BaseModel):
 
 class TransferEntry(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Наименование товара", example="Вода Горная")
-    weight: float = Field(..., gt=0, description="Вес/количество", example=12.0)
+    weight: intfloat = Field(..., gt=0, description="Вес/количество", example=12)
     unit: str = Field(..., description="Единица измерения", example="кг")
     reason: str = Field(..., min_length=1, max_length=255, description="Причина перемещения",
                         example="На точку Гайдара")

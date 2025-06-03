@@ -168,12 +168,12 @@ class ShiftReportResponse(BaseModel):
     cashier_name: str = Field(description="ФИО кассира")
 
     # Расчетные поля
-    total_income: Decimal = Field(description="Общая сумма приходов")
-    total_expenses: Decimal = Field(description="Общая сумма расходов")
-    total_acquiring: Decimal = Field(description="Общая сумма безналичных платежей")
-    calculated_amount: Decimal = Field(description="Расчетная сумма наличных")
-    surplus_shortage: Decimal = Field(description="Излишек (+) / недостача (-)")
-    fact_cash: Decimal = Field(description="Фактическая сумма наличных")
+    total_income: int = Field(description="Общая сумма приходов")
+    total_expenses: int = Field(description="Общая сумма расходов")
+    total_acquiring: int = Field(description="Общая сумма безналичных платежей")
+    calculated_amount: int = Field(description="Расчетная сумма наличных")
+    surplus_shortage: int = Field(description="Излишек (+) / недостача (-)")
+    fact_cash: int = Field(description="Фактическая сумма наличных")
 
     # Данные из системы
     total_revenue: int = Field(description="Общая выручка")
