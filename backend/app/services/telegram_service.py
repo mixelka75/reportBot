@@ -396,15 +396,15 @@ class TelegramService:
 🕐 <b>Дата/время:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 💰 <b>ФИНАНСОВАЯ ИНФОРМАЦИЯ:</b>
-- Общая выручка: <b>{data.get('total_revenue', 0):,.2f}₽</b>
-- Возвраты: <b>{data.get('returns', 0):,.2f}₽</b>
+- Общая выручка: <b>{int(data.get('total_revenue', 0))}₽</b>
+- Возвраты: <b>{int(data.get('returns', 0))}₽</b>
 
 🏦 <b>БЕЗНАЛИЧНЫЕ ПЛАТЕЖИ:</b>
-- Эквайринг: <b>{data.get('acquiring', 0):,.2f}₽</b>
-- QR код: <b>{data.get('qr_code', 0):,.2f}₽</b>
-- Онлайн приложение: <b>{data.get('online_app', 0):,.2f}₽</b>
-- Яндекс Еда: <b>{data.get('yandex_food', 0):,.2f}₽</b>
-- <b>Итого эквайринг: {data.get('total_acquiring', 0):,.2f}₽</b>
+- Эквайринг: <b>{int(data.get('acquiring', 0))}₽</b>
+- QR код: <b>{int(data.get('qr_code', 0))}₽</b>
+- Онлайн приложение: <b>{int(data.get('online_app', 0))}₽</b>
+- Яндекс Еда: <b>{int(data.get('yandex_food', 0))}₽</b>
+- <b>Итого эквайринг: {int(data.get('total_acquiring', 0))}₽</b>
 
 📈 <b>ПРИХОДЫ:</b>
 """
@@ -413,11 +413,11 @@ class TelegramService:
         income_entries = data.get('income_entries', [])
         if income_entries:
             for entry in income_entries:
-                message += f"• {entry.get('comment', 'Без комментария')}: <b>{entry.get('amount', 0):,.2f}₽</b>\n"
+                message += f"• {entry.get('comment', 'Без комментария')}: <b>{int(entry.get('amount', 0))}₽</b>\n"
         else:
             message += "• Приходов нет\n"
 
-        message += f"<b>Итого приходы: {data.get('total_income', 0):,.2f}₽</b>\n\n"
+        message += f"<b>Итого приходы: {int(data.get('total_income', 0))}₽</b>\n\n"
 
         message += "📉 <b>РАСХОДЫ:</b>\n"
 
@@ -425,31 +425,31 @@ class TelegramService:
         expense_entries = data.get('expense_entries', [])
         if expense_entries:
             for entry in expense_entries:
-                message += f"• {entry.get('description', 'Без описания')}: <b>{entry.get('amount', 0):,.2f}₽</b>\n"
+                message += f"• {entry.get('description', 'Без описания')}: <b>{int(entry.get('amount', 0))}₽</b>\n"
         else:
             message += "• Расходов нет\n"
 
-        message += f"<b>Итого расходы: {data.get('total_expenses', 0):,.2f}₽</b>\n\n"
+        message += f"<b>Итого расходы: {int(data.get('total_expenses', 0))}₽</b>\n\n"
 
         # Расчеты
-        calculated = data.get('calculated_amount', 0)
-        fact_cash = data.get('fact_cash', 0)
-        surplus_shortage = data.get('surplus_shortage', 0)
+        calculated = int(data.get('calculated_amount', 0))
+        fact_cash = int(data.get('fact_cash', 0))
+        surplus_shortage = int(data.get('surplus_shortage', 0))
 
         message += f"""🧮 <b>РАСЧЁТ СВЕРКИ:</b>
-{calculated//1}₽
+{calculated}₽
 
-💵 <b>Фактически в кассе:</b> <b>{fact_cash:,.2f}₽</b>
-🧮 <b>Расчетная сумма:</b> <b>{calculated:,.2f}₽</b>
+💵 <b>Фактически в кассе:</b> <b>{fact_cash}₽</b>
+🧮 <b>Расчетная сумма:</b> <b>{calculated}₽</b>
 
 """
 
         if surplus_shortage > 0:
-            message += f"✅ <b>Излишек: +{surplus_shortage:,.2f}₽</b>"
+            message += f"✅ <b>Излишек: +{surplus_shortage}₽</b>"
         elif surplus_shortage < 0:
-            message += f"❌ <b>Недостача: {surplus_shortage:,.2f}₽</b>"
+            message += f"❌ <b>Недостача: {surplus_shortage}₽</b>"
         else:
-            message += f"✅ <b>Сходится: {surplus_shortage:,.2f}₽</b>"
+            message += f"✅ <b>Сходится: {surplus_shortage}₽</b>"
 
         return message
 
@@ -646,10 +646,10 @@ class TelegramService:
             message += "🗑 <b>СПИСАНИЕ:</b>\n"
             for item in writeoffs:
                 name = item.get('name', 'Не указано')
-                weight = item.get('weight', 0)//1
+                weight = int(item.get('weight', 0))
                 unit = item.get('unit', 'кг')
                 reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight//1} {unit}</b> — {reason}\n"
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
             message += "\n"
 
         # Перемещения
@@ -658,9 +658,9 @@ class TelegramService:
             message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             for item in transfers:
                 name = item.get('name', 'Не указано')
-                weight = item.get('weight', 0)//1
+                weight = int(item.get('weight', 0))
                 unit = item.get('unit', 'кг')
                 reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight//1} {unit}</b> — {reason}\n"
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
 
         return message
