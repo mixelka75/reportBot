@@ -105,16 +105,6 @@ class TelegramService:
                             "text": "📱 Открыть приложение отчетов",
                             "web_app": {"url": self.mini_app_url}
                         }
-                    ],
-                    [
-                        {
-                            "text": "ℹ️ Помощь",
-                            "callback_data": "help"
-                        },
-                        {
-                            "text": "📊 Статистика",
-                            "callback_data": "stats"
-                        }
                     ]
                 ]
             }
