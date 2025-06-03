@@ -700,6 +700,20 @@ const TelegramWebApp = () => {
       }
     }, [validationErrors]);
 
+    const addIncomeEntry = useCallback(() => {
+      setFormData(prev => ({
+        ...prev,
+        incomes: [...prev.incomes, { amount: '', comment: '' }]
+      }));
+    }, []);
+
+    const addExpenseEntry = useCallback(() => {
+      setFormData(prev => ({
+        ...prev,
+        expenses: [...prev.expenses, { name: '', amount: '' }]
+      }));
+    }, []);
+
     // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ
     const calculateTotals = useMemo(() => {
       const totalIncome = formData.incomes.reduce((sum, item) =>
@@ -901,7 +915,7 @@ const TelegramWebApp = () => {
           {/* Income Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
-            <p className="text-sm text-gray-600 mb-3">5 полей в таком формате: Сумма - комментарий</p>
+            <p className="text-sm text-gray-600 mb-3">Изначально 5 полей в таком формате: Сумма - комментарий</p>
             {formData.incomes.map((income, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -928,6 +942,14 @@ const TelegramWebApp = () => {
                 />
               </div>
             ))}
+            <button
+              onClick={addIncomeEntry}
+              disabled={isLoading}
+              className="w-full p-2 mb-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              + добавить еще
+            </button>
             <div className="text-right text-green-600 font-semibold bg-green-50 p-2 rounded-lg">
               Итого приход: {calculateTotals.totalIncome.toLocaleString()} ₽
             </div>
@@ -936,7 +958,7 @@ const TelegramWebApp = () => {
           {/* Expenses Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
-            <p className="text-sm text-gray-600 mb-3">10 полей в таком формате: Сумма — Текст</p>
+            <p className="text-sm text-gray-600 mb-3">Изначально 10 полей в таком формате: Сумма — Текст</p>
             {formData.expenses.map((expense, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -963,6 +985,14 @@ const TelegramWebApp = () => {
                 />
               </div>
             ))}
+            <button
+              onClick={addExpenseEntry}
+              disabled={isLoading}
+              className="w-full p-2 mb-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              + добавить еще
+            </button>
             <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
               Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
             </div>
