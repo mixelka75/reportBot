@@ -1174,122 +1174,104 @@ const TelegramWebApp = () => {
 
           {/* Photo Upload */}
           <div className="mb-6">
-          <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
-            <Camera size={16} className="text-purple-500" />
-            Фотография кассового отчёта с iiko [обязательный пункт] *
-          </label>
+            <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
+              <Camera size={16} className="text-purple-500" />
+              Фотография кассового отчёта с iiko [обязательный пункт] *
+            </label>
 
-          {/* Скрытые input'ы для фото */}
-          <input
-            ref={(ref) => { window.cameraInput = ref; }}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => {
-              setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
-              if (validationErrors.photo) {
-                setValidationErrors(prev => {
-                  const newErrors = { ...prev };
-                  delete newErrors.photo;
-                  return newErrors;
-                });
-              }
-            }}
-            disabled={isLoading}
-            className="hidden"
-            name="camera-photo"
-            id="camera-photo"
-          />
+            {/* Скрытый input для фото */}
+            <input
+              ref={(ref) => { window.photoInput = ref; }}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
+                if (validationErrors.photo) {
+                  setValidationErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.photo;
+                    return newErrors;
+                  });
+                }
+              }}
+              disabled={isLoading}
+              className="hidden"
+              name="photo"
+              id="photo"
+            />
 
-          <input
-            ref={(ref) => { window.galleryInput = ref; }}
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
-              if (validationErrors.photo) {
-                setValidationErrors(prev => {
-                  const newErrors = { ...prev };
-                  delete newErrors.photo;
-                  return newErrors;
-                });
-              }
-            }}
-            disabled={isLoading}
-            className="hidden"
-            name="gallery-photo"
-            id="gallery-photo"
-          />
-
-          {/* Кнопки для выбора способа загрузки фото */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Универсальная кнопка загрузки фото */}
             <button
               type="button"
-              onClick={() => window.cameraInput?.click()}
+              onClick={() => window.photoInput?.click()}
               disabled={isLoading}
-              className={`photo-upload-button ${
+              className={`w-full photo-upload-button ${
                 validationErrors.photo 
                   ? 'border-red-400 bg-red-50 hover:bg-red-100' 
                   : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
               }`}
             >
-              <Camera size={20} className="text-purple-600" />
-              <div className="text-center">
-                <div className="font-semibold text-purple-700">Сделать фото</div>
-                <div className="text-xs text-purple-600">Камера</div>
+              <div className="flex items-center justify-center gap-3">
+                <Camera size={24} className="text-purple-600" />
+                <div className="text-center">
+                  <div className="font-semibold text-purple-700 text-lg">📷 Добавить фото отчёта</div>
+                  <div className="text-sm text-purple-600">Камера или галерея</div>
+                </div>
               </div>
             </button>
 
-            <button
-              type="button"
-              onClick={() => window.galleryInput?.click()}
-              disabled={isLoading}
-              className={`photo-upload-button ${
-                validationErrors.photo 
-                  ? 'border-red-400 bg-red-50 hover:bg-red-100' 
-                  : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
-              }`}
-            >
-              <Image size={20} className="text-purple-600" />
-              <div className="text-center">
-                <div className="font-semibold text-purple-700">Выбрать из галереи</div>
-                <div className="text-xs text-purple-600">Файлы</div>
+            {/* Показываем выбранный файл */}
+            {formData.photo && (
+              <div className="photo-selected bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-green-700 mb-1">
+                      ✅ Фото успешно выбрано
+                    </p>
+                    <p className="text-sm text-green-600 truncate mb-2">
+                      📄 {formData.photo.name}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-green-600">
+                      <span>📏 {(formData.photo.size / 1024 / 1024).toFixed(2)} МБ</span>
+                      <span>🖼️ {formData.photo.type}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, photo: null }));
+                      window.photoInput.value = '';
+                    }}
+                    className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                    disabled={isLoading}
+                  >
+                    <XCircle size={16} />
+                  </button>
+                </div>
               </div>
-            </button>
+            )}
+
+            {/* Подсказка если фото не выбрано */}
+            {!formData.photo && (
+              <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
+                validationErrors.photo 
+                  ? 'border-red-300 bg-red-50 text-red-600' 
+                  : 'border-gray-300 bg-gray-50 text-gray-500'
+              }`}>
+                <Camera size={32} className="mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium mb-1">
+                  {validationErrors.photo
+                    ? '❌ Необходимо добавить фотографию отчёта'
+                    : '📸 Нажмите кнопку выше'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  Система предложит выбор: камера или галерея
+                </p>
+              </div>
+            )}
           </div>
-
-          {/* Показываем выбранный файл */}
-          {formData.photo && (
-            <div className="photo-selected bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-sm text-green-700 flex items-center gap-2">
-                <CheckCircle size={16} className="text-green-500" />
-                <span className="font-medium">Фото выбрано:</span>
-                <span className="truncate">{formData.photo.name}</span>
-              </p>
-              <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
-                <span>Размер: {(formData.photo.size / 1024 / 1024).toFixed(2)} МБ</span>
-                <span>•</span>
-                <span>Тип: {formData.photo.type}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Подсказка если фото не выбрано */}
-          {!formData.photo && (
-            <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors ${
-              validationErrors.photo 
-                ? 'border-red-300 bg-red-50 text-red-600' 
-                : 'border-gray-300 bg-gray-50 text-gray-500'
-            }`}>
-              <Camera size={24} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">
-                {validationErrors.photo
-                  ? 'Необходимо добавить фотографию отчёта'
-                  : 'Выберите способ добавления фотографии выше'}
-              </p>
-            </div>
-          )}
-        </div>
 
           {/* Calculation Results - ИСПРАВЛЕННАЯ ФОРМУЛА */}
           <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
