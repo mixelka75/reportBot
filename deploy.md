@@ -421,51 +421,7 @@ echo "  Перезапуск:      docker-compose -f docker-compose.prod.yml res
 chmod +x deploy.sh
 ```
 
-## 5. Обновление main.py
-
-```bash
-nano backend/app/main.py
-```
-
-**Найдите и закомментируйте строку:**
-
-```python
-# app.mount("/mini-app", StaticFiles(directory="mini_app", html=True), name="mini-app")
-```
-
-**Добавьте в конец файла (перед `if __name__ == "__main__":`)::**
-
-```python
-from datetime import datetime
-from sqlalchemy import text
-
-@app.get("/health")
-async def health_check():
-    """
-    Простой healthcheck endpoint для мониторинга
-    """
-    try:
-        from app.core import db_helper
-        async with db_helper.session_factory() as session:
-            await session.execute(text("SELECT 1"))
-        
-        return {
-            "status": "healthy",
-            "service": "ReportBot API",
-            "timestamp": datetime.now().isoformat(),
-            "database": "connected"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy", 
-            "service": "ReportBot API",
-            "timestamp": datetime.now().isoformat(),
-            "database": "disconnected",
-            "error": str(e)
-        }
-```
-
-## 6. Обновление vite.config.js
+## 5. Обновление vite.config.js
 
 ```bash
 nano frontend/vite.config.js
@@ -503,7 +459,7 @@ export default defineConfig(({ mode }) => {
 })
 ```
 
-## 7. Настройка автообновления SSL сертификата
+## 6. Настройка автообновления SSL сертификата
 
 ```bash
 # Добавляем задание в cron
@@ -513,13 +469,13 @@ sudo crontab -e
 0 12 * * * /usr/bin/certbot renew --quiet --reload-nginx
 ```
 
-## 8. Деплой приложения
+## 7. Деплой приложения
 
 ```bash
 ./deploy.sh
 ```
 
-## 9. Настройка Telegram webhook
+## 8. Настройка Telegram webhook
 
 ```bash
 # Устанавливаем webhook
@@ -531,7 +487,7 @@ curl -X POST "https://api.telegram.org/botВАШ_ТОКЕН/setWebhook" \
 curl "https://api.telegram.org/botВАШ_ТОКЕН/getWebhookInfo"
 ```
 
-## 10. Полезные команды
+## 9. Полезные команды
 
 ```bash
 # Логи в реальном времени
@@ -556,7 +512,7 @@ sudo tail -f /var/log/nginx/miniapp-reportbot_error.log
 sudo tail -f /var/log/nginx/miniapp-reportbot_access.log
 ```
 
-## 11. Тестирование в Telegram
+## 10. Тестирование в Telegram
 
 1. Найдите вашего бота в Telegram
 2. Напишите команду `/start`
