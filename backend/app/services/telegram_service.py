@@ -483,8 +483,8 @@ class TelegramService:
 - Лаваш: <b>{data.get('lavash', 0)} шт</b>
 - Кетчуп дип: <b>{data.get('ketchup_dip', 0)} шт</b>
 - Сырный соус дип: <b>{data.get('sirny_sous_dip', 0)} шт</b>
-- Курица жареная: <b>{data.get('kuriza_jareny', 0)} шт</b>
-- Курица сырая: <b>{data.get('kuriza_siraya', 0)} шт</b>
+- Курица жареная: <b>{data.get('kuriza_jareny', 0)} кг</b>
+- Курица сырая: <b>{data.get('kuriza_siraya', 0)} кг</b>
 """
 
         return message
