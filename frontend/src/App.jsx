@@ -408,10 +408,6 @@ const TelegramWebApp = () => {
           <button
             onClick={() => {
               clearNotification();
-              // Удаляем черновик только при успешной отправке
-              if (notification.type === 'success') {
-                clearCurrentDraft();
-              }
               setCurrentForm('menu');
               loadDrafts(); // Обновляем список черновиков
             }}
@@ -795,6 +791,7 @@ const TelegramWebApp = () => {
         apiFormData.append('photo', formData.photo);
 
         const result = await apiService.createShiftReport(apiFormData);
+        clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
         showNotification('success', 'Отчет отправлен!', 'Отчет смены успешно отправлен и сохранен в системе');
 
       } catch (error) {
@@ -803,7 +800,7 @@ const TelegramWebApp = () => {
       } finally {
         setIsLoading(false);
       }
-    }, [formData, apiService, showNotification, showValidationErrors]);
+    }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -1319,6 +1316,7 @@ const TelegramWebApp = () => {
         apiFormData.append('kuriza_siraya', parseInt(formData.items['Курица сырая']) || 0);
 
         const result = await apiService.createInventoryReport(apiFormData);
+        clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
         showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в системе');
 
       } catch (error) {
@@ -1327,7 +1325,7 @@ const TelegramWebApp = () => {
       } finally {
         setIsLoading(false);
       }
-    }, [formData, apiService, showNotification, showValidationErrors]);
+    }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -1621,6 +1619,7 @@ const TelegramWebApp = () => {
         }
 
         const result = await apiService.createReceivingReport(apiFormData);
+        clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
         showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
 
       } catch (error) {
@@ -1629,7 +1628,7 @@ const TelegramWebApp = () => {
       } finally {
         setIsLoading(false);
       }
-    }, [formData, apiService, showNotification, showValidationErrors]);
+    }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -1966,7 +1965,7 @@ const TelegramWebApp = () => {
           .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
             name: item.name,
-unit: item.unit,  // отдельное поле,
+            unit: item.unit,  // отдельное поле,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
@@ -1980,7 +1979,7 @@ unit: item.unit,  // отдельное поле,
           .filter(item => item.name && item.weight && item.unit && item.reason)
           .map(item => ({
             name: item.name,
-unit: item.unit,  // отдельное поле,
+            unit: item.unit,  // отдельное поле,
             weight: parseFloat(item.weight),
             reason: item.reason
           }));
@@ -1990,6 +1989,7 @@ unit: item.unit,  // отдельное поле,
         }
 
         const result = await apiService.createWriteOffReport(apiFormData);
+        clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
         showNotification('success', 'Акт отправлен!', 'Акт списания/перемещения успешно отправлен и сохранен в системе');
 
       } catch (error) {
@@ -1998,7 +1998,7 @@ unit: item.unit,  // отдельное поле,
       } finally {
         setIsLoading(false);
       }
-    }, [formData, apiService, showNotification, showValidationErrors]);
+    }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
