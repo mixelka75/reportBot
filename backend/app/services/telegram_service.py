@@ -462,7 +462,7 @@ class TelegramService:
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Время проведения:</b> {data.get('date', '').strftime('%d.%m.%Y %H:%M') if data.get('date') else 'Не указано'}
+🕐 <b>Время проведения:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 🥤 <b>НАПИТКИ:</b>
 - IL Primo стекло: <b>{data.get('il_primo_steklo', 0)} шт</b>
