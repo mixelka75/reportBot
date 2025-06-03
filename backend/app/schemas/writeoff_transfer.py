@@ -22,7 +22,7 @@ class WriteoffEntry(BaseModel):
 
 class TransferEntry(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Наименование товара", example="Вода Горная")
-    weight: intfloat = Field(..., gt=0, description="Вес/количество", example=12)
+    weight: int= Field(..., gt=0, description="Вес/количество", example=12)
     unit: str = Field(..., description="Единица измерения", example="кг")
     reason: str = Field(..., min_length=1, max_length=255, description="Причина перемещения",
                         example="На точку Гайдара")
