@@ -26,6 +26,9 @@ class ShiftReport(Base):
     qr_code = Column(Numeric(10, 2), nullable=False, default=0)
     online_app = Column(Numeric(10, 2), nullable=False, default=0)
     yandex_food = Column(Numeric(10, 2), nullable=False, default=0)
+    # НОВЫЕ ПОЛЯ
+    yandex_food_no_system = Column(Numeric(10, 2), nullable=False, default=0)
+    primehill = Column(Numeric(10, 2), nullable=False, default=0)
 
     # Итоговые расчеты
     fact_cash = Column(Numeric(10, 2), nullable=False)  # Указывает кассир

@@ -126,6 +126,17 @@ class ShiftReportCreate(BaseModel):
         description="Оплата через Яндекс Еда",
         example=1200.00
     )
+    # НОВЫЕ ПОЛЯ
+    yandex_food_no_system: Decimal = Field(
+        default=0,
+        description="Яндекс.Еда - не пришел заказ в систему",
+        example=300.00
+    )
+    primehill: Decimal = Field(
+        default=0,
+        description="Primehill",
+        example=500.00
+    )
 
     fact_cash: Decimal = Field(
         ...,
@@ -153,6 +164,8 @@ class ShiftReportCreate(BaseModel):
                 "qr_code": 1500.00,
                 "online_app": 2000.00,
                 "yandex_food": 1200.00,
+                "yandex_food_no_system": 300.00,
+                "primehill": 500.00,
                 "fact_cash": 5100.50
             }
         }
@@ -182,6 +195,9 @@ class ShiftReportResponse(BaseModel):
     qr_code: int = Field(description="QR код")
     online_app: int = Field(description="Онлайн приложение")
     yandex_food: int = Field(description="Яндекс Еда")
+    # НОВЫЕ ПОЛЯ
+    yandex_food_no_system: int = Field(description="Яндекс.Еда - не пришел заказ в систему")
+    primehill: int = Field(description="Primehill")
 
     # JSON поля из базы данных
     income_entries: List[Dict[str, Any]] = Field(
@@ -208,9 +224,9 @@ class ShiftReportResponse(BaseModel):
                 "cashier_name": "Иванов Иван Иванович",
                 "total_income": 700.50,
                 "total_expenses": 425.75,
-                "total_acquiring": 9700.00,
-                "calculated_amount": 5574.75,
-                "surplus_shortage": -474.25,
+                "total_acquiring": 10500.00,
+                "calculated_amount": 4774.75,
+                "surplus_shortage": 325.75,
                 "fact_cash": 5100.50,
                 "total_revenue": 15000,
                 "returns": 200,
@@ -218,6 +234,8 @@ class ShiftReportResponse(BaseModel):
                 "qr_code": 1500,
                 "online_app": 2000,
                 "yandex_food": 1200,
+                "yandex_food_no_system": 300,
+                "primehill": 500,
                 "income_entries": [
                     {"amount": 500.5, "comment": "Внесение от администратора"},
                     {"amount": 200.0, "comment": "Сдача с предыдущей смены"}
@@ -231,4 +249,3 @@ class ShiftReportResponse(BaseModel):
                 "created_at": "2025-05-28T10:30:00Z"
             }
         }
-

@@ -62,7 +62,7 @@ class ShiftReportCRUD:
             # Сохраняем фото
             photo_path = self.file_service.save_shift_report_photo(photo)
 
-            # Рассчитываем сверку
+            # Рассчитываем сверку (ОБНОВЛЕНО: добавлены новые поля)
             calculations = self.calculator.calculate_shift_report(
                 total_revenue=report_data.total_revenue,
                 returns=report_data.returns,
@@ -72,6 +72,8 @@ class ShiftReportCRUD:
                 qr_code=report_data.qr_code,
                 online_app=report_data.online_app,
                 yandex_food=report_data.yandex_food,
+                yandex_food_no_system=report_data.yandex_food_no_system,  # НОВОЕ ПОЛЕ
+                primehill=report_data.primehill,  # НОВОЕ ПОЛЕ
                 fact_cash=report_data.fact_cash
             )
 
@@ -90,7 +92,7 @@ class ShiftReportCRUD:
                     'amount': float(entry.amount)
                 })
 
-            # Создаем отчет
+            # Создаем отчет (ОБНОВЛЕНО: добавлены новые поля)
             db_report = ShiftReport(
                 location=report_data.location,
                 shift_type=report_data.shift_type,
@@ -106,6 +108,8 @@ class ShiftReportCRUD:
                 qr_code=report_data.qr_code,
                 online_app=report_data.online_app,
                 yandex_food=report_data.yandex_food,
+                yandex_food_no_system=report_data.yandex_food_no_system,  # НОВОЕ ПОЛЕ
+                primehill=report_data.primehill,  # НОВОЕ ПОЛЕ
                 fact_cash=report_data.fact_cash,
                 total_acquiring=calculations["total_acquiring"],
                 calculated_amount=calculations["calculated_amount"],
@@ -151,7 +155,7 @@ class ShiftReportCRUD:
                         print(f"⚠️  Отчет с ID {report_id} не найден для отправки в Telegram")
                         return
 
-                    # Подготавливаем данные для отправки
+                    # Подготавливаем данные для отправки (ОБНОВЛЕНО: добавлены новые поля)
                     report_dict = {
                         'location': db_report.location,
                         'cashier_name': db_report.cashier_name,
@@ -163,6 +167,8 @@ class ShiftReportCRUD:
                         'qr_code': float(db_report.qr_code),
                         'online_app': float(db_report.online_app),
                         'yandex_food': float(db_report.yandex_food),
+                        'yandex_food_no_system': float(db_report.yandex_food_no_system),  # НОВОЕ ПОЛЕ
+                        'primehill': float(db_report.primehill),  # НОВОЕ ПОЛЕ
                         'total_acquiring': float(db_report.total_acquiring),
                         'income_entries': db_report.income_entries,
                         'total_income': float(db_report.total_income),

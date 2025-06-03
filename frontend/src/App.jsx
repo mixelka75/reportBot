@@ -625,6 +625,7 @@ const TelegramWebApp = () => {
   );
 
   // Cashier Report Form - ИСПРАВЛЕНА ФОРМУЛА
+  // Cashier Report Form - ИСПРАВЛЕНА ФОРМУЛА
   const CashierReportForm = () => {
     const [formData, setFormData] = useState({
       location: '',
@@ -639,7 +640,9 @@ const TelegramWebApp = () => {
         acquiring: '',
         qrCode: '',
         onlineApp: '',
-        yandexEda: ''
+        yandexEda: '',
+        yandexEdaNoSystem: '', // НОВОЕ ПОЛЕ
+        primehill: '' // НОВОЕ ПОЛЕ
       },
       factCash: '', // ДОБАВЛЕНО: поле для фактической наличности
       photo: null
@@ -714,7 +717,7 @@ const TelegramWebApp = () => {
       }));
     }, []);
 
-    // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ
+    // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ (ДОБАВЛЕНЫ НОВЫЕ ПОЛЯ)
     const calculateTotals = useMemo(() => {
       const totalIncome = formData.incomes.reduce((sum, item) =>
         sum + (parseFloat(item.amount) || 0), 0
@@ -723,11 +726,13 @@ const TelegramWebApp = () => {
         sum + (parseFloat(item.amount) || 0), 0
       );
 
-      // ИСПРАВЛЕНО: Итого эквайринг = все поля кроме общей выручки и возвратов
+      // ИСПРАВЛЕНО: Итого эквайринг = все поля кроме общей выручки и возвратов (включая новые поля)
       const totalAcquiring = (parseFloat(formData.iikoData.acquiring) || 0) +
                             (parseFloat(formData.iikoData.qrCode) || 0) +
                             (parseFloat(formData.iikoData.onlineApp) || 0) +
-                            (parseFloat(formData.iikoData.yandexEda) || 0);
+                            (parseFloat(formData.iikoData.yandexEda) || 0) +
+                            (parseFloat(formData.iikoData.yandexEdaNoSystem) || 0) +
+                            (parseFloat(formData.iikoData.primehill) || 0);
 
       // ИСПРАВЛЕНО: ФОРМУЛА ПО ТЗ: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг)
       const totalRevenue = parseFloat(formData.iikoData.totalRevenue) || 0;
@@ -772,13 +777,15 @@ const TelegramWebApp = () => {
         apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
         apiFormData.append('cashier_name', formData.cashierName);
 
-        // Финансовые данные
+        // Финансовые данные (ОБНОВЛЕНО: добавлены новые поля)
         apiFormData.append('total_revenue', parseFloat(formData.iikoData.totalRevenue) || 0);
         apiFormData.append('returns', parseFloat(formData.iikoData.returns) || 0);
         apiFormData.append('acquiring', parseFloat(formData.iikoData.acquiring) || 0);
         apiFormData.append('qr_code', parseFloat(formData.iikoData.qrCode) || 0);
         apiFormData.append('online_app', parseFloat(formData.iikoData.onlineApp) || 0);
         apiFormData.append('yandex_food', parseFloat(formData.iikoData.yandexEda) || 0);
+        apiFormData.append('yandex_food_no_system', parseFloat(formData.iikoData.yandexEdaNoSystem) || 0);
+        apiFormData.append('primehill', parseFloat(formData.iikoData.primehill) || 0);
 
         // ИСПРАВЛЕНО: Отправляем фактическую сумму наличных
         apiFormData.append('fact_cash', parseFloat(formData.factCash) || 0);
@@ -1091,6 +1098,37 @@ const TelegramWebApp = () => {
                   className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
                   name="iiko-yandexEda"
                   id="iiko-yandexEda"
+                />
+              </div>
+              {/* НОВЫЕ ПОЛЯ */}
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда - не пришел заказ в систему:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Яндекс.Еда - не пришел заказ в систему"
+                  value={formData.iikoData.yandexEdaNoSystem}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.yandexEdaNoSystem`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-yandexEdaNoSystem"
+                  id="iiko-yandexEdaNoSystem"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Primehill:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Primehill"
+                  value={formData.iikoData.primehill}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.primehill`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-primehill"
+                  id="iiko-primehill"
                 />
               </div>
             </div>

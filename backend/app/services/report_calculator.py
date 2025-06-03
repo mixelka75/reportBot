@@ -14,6 +14,8 @@ class ReportCalculator:
             qr_code: Decimal,
             online_app: Decimal,
             yandex_food: Decimal,
+            yandex_food_no_system: Decimal,  # НОВОЕ ПОЛЕ
+            primehill: Decimal,  # НОВОЕ ПОЛЕ
             fact_cash: Decimal
     ) -> dict:
         """
@@ -27,8 +29,15 @@ class ReportCalculator:
         # Считаем общую сумму расходов
         total_expenses = round((sum(entry.amount for entry in expense_entries)), 0)//1
 
-        # Считаем общую сумму эквайринга (все отмеченные "*" пункты)
-        total_acquiring = round((acquiring + qr_code + online_app + yandex_food),0)//1
+        # Считаем общую сумму эквайринга (все отмеченные "*" пункты + новые поля)
+        total_acquiring = round((
+            acquiring +
+            qr_code +
+            online_app +
+            yandex_food +
+            yandex_food_no_system +  # ДОБАВЛЕНО
+            primehill  # ДОБАВЛЕНО
+        ),0)//1
 
         # Применяем формулу расчета
         calculated_amount = round((total_revenue - returns + total_income - total_expenses - total_acquiring),0)//1

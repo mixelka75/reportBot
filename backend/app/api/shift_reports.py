@@ -38,8 +38,12 @@ async def create_shift_report(
         qr_code: int = Form(default=0, description="QR код", example=1500.00, ge=0),
         online_app: int = Form(default=0, description="Онлайн приложение", example=2000.00, ge=0),
         yandex_food: int = Form(default=0, description="Яндекс Еда", example=1200.00, ge=0),
-        fact_cash: int = Form(..., description="Фактическая наличность", example=5100.50),
+        # НОВЫЕ ПОЛЯ
+        yandex_food_no_system: int = Form(default=0, description="Яндекс.Еда - не пришел заказ в систему",
+                                          example=300.00, ge=0),
+        primehill: int = Form(default=0, description="Primehill", example=500.00, ge=0),
 
+        fact_cash: int = Form(..., description="Фактическая наличность", example=5100.50),
 
         # JSON поля
         income_entries_json: Optional[str] = Form(
@@ -89,6 +93,8 @@ async def create_shift_report(
             qr_code=qr_code,
             online_app=online_app,
             yandex_food=yandex_food,
+            yandex_food_no_system=yandex_food_no_system,  # НОВОЕ ПОЛЕ
+            primehill=primehill,  # НОВОЕ ПОЛЕ
             fact_cash=fact_cash
         )
 
