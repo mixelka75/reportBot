@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any
@@ -390,7 +393,7 @@ class TelegramService:
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Дата/время:</b> {data.get('date', '').strftime('%d.%m.%Y %H:%M') if data.get('date') else 'Не указано'}
+🕐 <b>Дата/время:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 💰 <b>ФИНАНСОВАЯ ИНФОРМАЦИЯ:</b>
 - Общая выручка: <b>{data.get('total_revenue', 0):,.2f}₽</b>
@@ -459,7 +462,7 @@ class TelegramService:
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Время проведения:</b> {data.get('date', '').strftime('%d.%m.%Y %H:%M') if data.get('date') else 'Не указано'}
+🕐 <b>Время проведения:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 🥤 <b>НАПИТКИ:</b>
 - IL Primo стекло: <b>{data.get('il_primo_steklo', 0)} шт</b>
@@ -489,7 +492,7 @@ class TelegramService:
         message = f"""📋 <b>ОТЧЁТ ПРИЁМА ТОВАРА</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-🕐 <b>Дата:</b> {data.get('date', '').strftime('%d.%m.%Y %H:%M') if data.get('date') else 'Не указано'}
+🕐 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 """
 
@@ -633,7 +636,7 @@ class TelegramService:
         message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-📆 <b>Дата:</b> {data.get('report_date', '').strftime('%d.%m.%Y') if data.get('report_date') else 'Не указано'}
+📆 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
 
 """
 

@@ -57,7 +57,7 @@ class ShiftReportCRUD:
             utc_now = datetime.now(ZoneInfo("UTC"))
 
             # Конвертация в московское время (Europe/Moscow)
-            date = utc_now.astimezone(ZoneInfo("Europe/Moscow"))
+            date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow"))
 
             # Сохраняем фото
             photo_path = self.file_service.save_shift_report_photo(photo)
