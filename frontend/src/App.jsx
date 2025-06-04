@@ -1443,6 +1443,7 @@ const TelegramWebApp = () => {
         apiFormData.append('barbeku_dip', parseInt(formData.items['Барбекю дип']) || 0);
         apiFormData.append('bulka_na_shaurmu', parseInt(formData.items['Булка на шаурму']) || 0);
         apiFormData.append('lavash', parseInt(formData.items['Лаваш']) || 0);
+        apiFormData.append('lepeshki', parseInt(formData.items['Лепешки']) || 0);
         apiFormData.append('ketchup_dip', parseInt(formData.items['Кетчуп дип']) || 0);
         apiFormData.append('sirny_sous_dip', parseInt(formData.items['Сырный соус дип']) || 0);
         apiFormData.append('kuriza_jareny', parseInt(formData.items['Курица жаренная']) || 0);
