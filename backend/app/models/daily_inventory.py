@@ -25,6 +25,7 @@ class DailyInventory(Base):
     barbeku_dip = Column(SmallInteger, nullable=False)
     bulka_na_shaurmu = Column(SmallInteger, nullable=False)
     lavash = Column(SmallInteger, nullable=False)
+    lepeshki = Column(SmallInteger, nullable=False)
     ketchup_dip = Column(SmallInteger, nullable=False)
     sirny_sous_dip = Column(SmallInteger, nullable=False)
     kuriza_jareny = Column(SmallInteger, nullable=False)

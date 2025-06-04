@@ -40,7 +40,8 @@ class DailyInventoryCreate(BaseModel):
     palli: int = Field(..., ge=0, description="Количество палли (лепешки)")
     barbeku_dip: int = Field(..., ge=0, description="Количество барбекю дипа")
     bulka_na_shaurmu: int = Field(..., ge=0, description="Количество булок для шаурмы")
-    lavash: int = Field(..., ge=0, description="Количество лаваша")
+    lavash: int = Field(..., ge=0, description="Количество лаваша"),
+    lepeshki: int = Field(..., ge=0, description="Количество лепешек"),
     ketchup_dip: int = Field(..., ge=0, description="Количество кетчуп дипа")
     sirny_sous_dip: int = Field(..., ge=0, description="Количество сырного соуса дип")
     kuriza_jareny: int = Field(..., ge=0, description="Количество жареной курицы")
@@ -64,6 +65,7 @@ class DailyInventoryCreate(BaseModel):
                 "barbeku_dip": 3,
                 "bulka_na_shaurmu": 20,
                 "lavash": 15,
+                "lepeshki": 10,
                 "ketchup_dip": 5,
                 "sirny_sous_dip": 4,
                 "kuriza_jareny": 10,
@@ -95,6 +97,7 @@ class DailyInventoryResponse(BaseModel):
     barbeku_dip: int
     bulka_na_shaurmu: int
     lavash: int
+    lepeshki: int
     ketchup_dip: int
     sirny_sous_dip: int
     kuriza_jareny: int

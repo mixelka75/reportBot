@@ -538,7 +538,7 @@ const TelegramWebApp = () => {
         )}
 
         {/* Новые отчеты */}
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">➕ Создать новый отчет</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Создать новый отчет:</h2>
         <div className="space-y-4">
           <button
             onClick={() => {
@@ -835,7 +835,7 @@ const TelegramWebApp = () => {
               <Home size={20} className="text-gray-600" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-green-600">💰 Завершить смену, сдать отчёт</h1>
+              <h1 className="text-2xl font-bold text-green-600">💰 Кассовый отчет</h1>
               {currentDraftId && (
                 <p className="text-sm text-green-600">✓ Автосохранение включено</p>
               )}
@@ -922,7 +922,7 @@ const TelegramWebApp = () => {
           {/* Income Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
-            <p className="text-sm text-gray-600 mb-3">Изначально 5 полей в таком формате: Сумма - комментарий</p>
+            <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
             {formData.incomes.map((income, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -955,7 +955,7 @@ const TelegramWebApp = () => {
               className="w-full p-2 mb-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              + добавить еще
+              добавить еще
             </button>
             <div className="text-right text-green-600 font-semibold bg-green-50 p-2 rounded-lg">
               Итого приход: {calculateTotals.totalIncome.toLocaleString()} ₽
@@ -965,7 +965,7 @@ const TelegramWebApp = () => {
           {/* Expenses Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
-            <p className="text-sm text-gray-600 mb-3">Изначально 10 полей в таком формате: Сумма — Текст</p>
+            <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
             {formData.expenses.map((expense, index) => (
               <div key={index} className="grid grid-cols-2 gap-2 mb-2">
                 <MemoizedInput
@@ -982,7 +982,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Текст"
+                  placeholder="Комментарий"
                   value={expense.name}
                   onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
                   disabled={isLoading}
@@ -998,7 +998,7 @@ const TelegramWebApp = () => {
               className="w-full p-2 mb-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              + добавить еще
+              добавить еще
             </button>
             <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
               Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
@@ -1141,7 +1141,7 @@ const TelegramWebApp = () => {
               {/* Факт наличные - ДОБАВЛЕНО ПОЛЕ ДЛЯ ВВОДА */}
               <div>
                 <label className="text-sm font-medium block mb-2 text-gray-700">
-                  Факт наличные: (кассир здесь укажет сам фактическую сумму наличных) *
+                  Факт наличные: (указать фактическую сумму наличных) *
                 </label>
                 <MemoizedInput
                   type="text"
@@ -1176,7 +1176,7 @@ const TelegramWebApp = () => {
           <div className="mb-6">
             <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
               <Camera size={16} className="text-purple-500" />
-              Фотография кассового отчёта с iiko [обязательный пункт] *
+              Фотография кассового отчёта с iiko*
             </label>
 
             {/* Скрытый input для фото */}
@@ -1215,8 +1215,7 @@ const TelegramWebApp = () => {
               <div className="flex items-center justify-center gap-3">
                 <Camera size={24} className="text-purple-600" />
                 <div className="text-center">
-                  <div className="font-semibold text-purple-700 text-lg">📷 Добавить фото отчёта</div>
-                  <div className="text-sm text-purple-600">Камера или галерея</div>
+                  <div className="font-semibold text-purple-700 text-lg">Добавить фото отчёта</div>
                 </div>
               </div>
             </button>
@@ -1267,7 +1266,7 @@ const TelegramWebApp = () => {
                     : '📸 Нажмите кнопку выше'}
                 </p>
                 <p className="text-xs text-gray-400">
-                  Система предложит выбор: камера или галерея
+                  *возможно добавить только фотографию с галереи
                 </p>
               </div>
             )}
@@ -1277,11 +1276,10 @@ const TelegramWebApp = () => {
           <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-600 mb-3">
               <Calculator size={20} />
-              Авто подсчёт излишки или недостачи
+              Подсчет излишки/недостачи
             </h3>
             <div className="space-y-2 text-sm">
               <div className="text-xs text-gray-600 mb-2">
-                ФОРМУЛА: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг) = сверка суммы фактический суммы
               </div>
               <div className="flex justify-between text-gray-700">
                 <span>Расчетная сумма:</span>
@@ -1329,7 +1327,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  ✅ Отправить отчёт
+                  Отправить отчёт
                 </>
               )}
             </button>
@@ -1488,7 +1486,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              📍Локация: выбор локации по кнопке *
+              📍 Локация:
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -1512,7 +1510,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <Clock size={16} className="text-yellow-500" />
-              🌙 Смена: выбор по кнопке *
+              🌙 Смена:
             </label>
             <div className="flex gap-2">
               {['Утро', 'Ночь'].map(shift => (
@@ -1545,7 +1543,7 @@ const TelegramWebApp = () => {
 
           {/* Conductor */}
           <div className="mb-6">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📊 Кто провел: [текст] *</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📊 Кто провел:*</label>
             <MemoizedInput
               type="text"
               value={formData.conductor}
@@ -1613,7 +1611,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  ✅ Отправить отчёт
+                  Отправить отчёт
                 </>
               )}
             </button>
@@ -1791,7 +1789,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              📍Локация: выбор локации по кнопке *
+              📍 Локация:
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -1826,7 +1824,7 @@ const TelegramWebApp = () => {
           {/* Kitchen Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
-            <p className="text-sm text-gray-600 mb-3">15 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
             {formData.kitchen.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
@@ -1853,7 +1851,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес/количество"
+                  placeholder="кг/шт"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('kitchen', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -1869,14 +1867,14 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              + добавить еще
+             добавить еще
             </button>
           </div>
 
           {/* Bar Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">🍺 Бар</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">🍹 Бар</h3>
+            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
             {formData.bar.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
@@ -1903,7 +1901,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес/количество"
+                  placeholder="кг/шт"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('bar', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -1919,14 +1917,14 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              + добавить еще
+              добавить еще
             </button>
           </div>
 
           {/* Packaging Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-green-600 mb-3">📦 Упаковки/хоз</h3>
-            <p className="text-sm text-gray-600 mb-3">5 пунктов &gt; Наименования — количество — единица (кг/шт)<br />+ кнопка "добавить еще" (добавляет +1 пункт)</p>
+            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (пачки/шт)</p>
             {formData.packaging.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
                 <MemoizedInput
@@ -1953,7 +1951,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="вес/количество"
+                  placeholder="пачки/шт"
                   value={item.unit}
                   onChange={(e) => handleArrayChange('packaging', index, 'unit', e.target.value)}
                   disabled={isLoading}
@@ -1969,7 +1967,7 @@ const TelegramWebApp = () => {
               className="w-full p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              + добавить еще
+             добавить еще
             </button>
           </div>
 
@@ -2003,7 +2001,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  ✅ Отправить отчёт
+                  Отправить отчёт
                 </>
               )}
             </button>
@@ -2161,7 +2159,7 @@ const TelegramWebApp = () => {
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <MapPin size={16} className="text-red-500" />
-              📍Локация: выбор локации по кнопке *
+              📍 Локация:
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
@@ -2195,7 +2193,7 @@ const TelegramWebApp = () => {
 
           {/* Write-offs Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ списания</h3>
+            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
             <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
             {formData.writeOffs.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
@@ -2247,8 +2245,8 @@ const TelegramWebApp = () => {
 
           {/* Transfers Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ перемещения</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещения</h3>
+            <p className="text-sm text-gray-600 mb-3">Наименование - количество - кг/шт - причина и куда отправили</p>
             {formData.transfers.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
@@ -2285,7 +2283,7 @@ const TelegramWebApp = () => {
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Причина"
+                  placeholder="Причина и куда переместили"
                   value={item.reason}
                   onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
@@ -2327,7 +2325,7 @@ const TelegramWebApp = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  ✅ Отправить отчёт
+                  Отправить отчёт
                 </>
               )}
             </button>

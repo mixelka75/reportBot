@@ -152,6 +152,12 @@ async def daily_inventory_create(
             description="Количество лаваша, шт",
             example=15
         )],
+        lepeshki: Annotated[int, Form(
+            ...,
+            ge=0,
+            description="Количество лепешек",
+            example=10
+        )],
         ketchup_dip: Annotated[int, Form(
             ...,
             ge=0,
@@ -229,6 +235,7 @@ async def daily_inventory_create(
             barbeku_dip=barbeku_dip,
             bulka_na_shaurmu=bulka_na_shaurmu,
             lavash=lavash,
+            lepeshki=lepeshki,
             ketchup_dip=ketchup_dip,
             sirny_sous_dip=sirny_sous_dip,
             kuriza_jareny=kuriza_jareny,
