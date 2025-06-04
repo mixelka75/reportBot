@@ -1642,7 +1642,7 @@ const TelegramWebApp = () => {
   const ReceivingForm = () => {
     const [formData, setFormData] = useState({
       location: '',
-      date: getTodayDate(), // ИЗМЕНЕНО: datetime вместо getCurrentDate()
+      date: '', // ИЗМЕНЕНО: datetime вместо getCurrentDate()
       kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }),
       bar: Array(10).fill({ name: '', quantity: '', unit: '' }),
       packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
@@ -1705,6 +1705,7 @@ const TelegramWebApp = () => {
       const errors = {};
 
       if (!formData.location) errors.location = 'Выберите локацию';
+      if (!formData.date) errors.date = 'Выберите дату';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
       const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity && item.unit);
@@ -1838,6 +1839,7 @@ const TelegramWebApp = () => {
           {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
+            <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
 
             {/* Кнопки быстрого выбора */}
             <div className="flex gap-2 mb-3">
@@ -1869,12 +1871,14 @@ const TelegramWebApp = () => {
 
             {/* Поле ввода даты */}
             <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-              disabled={isLoading}
-              className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors"
-            />
+            type="text"
+            value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
+            readOnly
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
+          />
+            {!formData.date && (
+            <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
+            )}
           </div>
 
 
@@ -2072,7 +2076,7 @@ const TelegramWebApp = () => {
   const WriteOffForm = () => {
     const [formData, setFormData] = useState({
       location: '',
-      date: getCurrentDate(), // ИСПРАВЛЕНО: выбор даты
+      date: '', // ИСПРАВЛЕНО: выбор даты
       writeOffs: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }),
       transfers: Array(10).fill({ name: '', weight: '', unit: '', reason: '' })
     });
@@ -2126,6 +2130,7 @@ const TelegramWebApp = () => {
       const errors = {};
 
       if (!formData.location) errors.location = 'Выберите локацию';
+      if (!formData.date) errors.date = 'Выберите дату';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
       const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.unit && item.reason);
@@ -2149,6 +2154,8 @@ const TelegramWebApp = () => {
         // Основные поля
         apiFormData.append('location', formData.location);
         apiFormData.append('report_date', formData.date);
+        apiFormData.append('date', formData.date);
+
 
         // Списания
         const writeoffs = formData.writeOffs
@@ -2245,9 +2252,10 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-         {/* Date - ИСПРАВЛЕНО: выбор даты с кнопками быстрого выбора */}
+          {/* Date - ИСПРАВЛЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
+            <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
 
             {/* Кнопки быстрого выбора */}
             <div className="flex gap-2 mb-3">
@@ -2279,12 +2287,15 @@ const TelegramWebApp = () => {
 
             {/* Поле ввода даты */}
             <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-              disabled={isLoading}
-              className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+              type="text"
+              value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
+              readOnly
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
+              data-placeholder="Выберите дату"
             />
+            {!formData.date && (
+            <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
+            )}
           </div>
 
           {/* Write-offs Section */}

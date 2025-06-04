@@ -1,10 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
 import aiohttp
-import asyncio
 from typing import Optional, Dict, Any
-from fastapi import UploadFile
 from pathlib import Path
 import json
 import socket
@@ -596,7 +593,7 @@ class TelegramService:
             print(f"Неожиданная ошибка при отправке фото в Telegram: {str(e)}")
             return False
 
-    async def send_writeoff_transfer_report(self, report_data: Dict[str, Any]) -> bool:
+    async def send_writeoff_transfer_report(self, report_data: Dict[str, Any], date: datetime) -> bool:
         """Отправляет акт списания/перемещения в Telegram"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
@@ -606,7 +603,7 @@ class TelegramService:
             topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
 
             # Форматируем сообщение
-            message = self._format_writeoff_transfer_message(report_data)
+            message = self._format_writeoff_transfer_message(report_data, date)
 
             # Отправляем сообщение
             success = await self._send_message(self.chat_id, message, topic_id)
@@ -623,12 +620,12 @@ class TelegramService:
             print(f"⚠️  Акт списания/перемещения создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
+    def _format_writeoff_transfer_message(self, data: Dict[str, Any], date: datetime) -> str:
         """Форматирует сообщение акта списания/перемещения"""
         message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-📆 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+📆 <b>Дата:</b> {date.strftime('%d.%m.%Y')} {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%H:%M')}
 
 """
 

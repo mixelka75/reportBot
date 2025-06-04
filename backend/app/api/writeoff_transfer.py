@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, status, Form, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import WriteoffTransferCRUD
@@ -72,6 +72,7 @@ async def create_writeoff_transfer(
 Пример: [{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]""",
             example='[{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]'
         ),
+        date: datetime = Form(...),
 
         db: AsyncSession = Depends(get_db),
 ) -> WriteoffTransferResponse:
@@ -187,7 +188,7 @@ async def create_writeoff_transfer(
             transfers=transfers_list
         )
 
-        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data)
+        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data, date)
 
     except HTTPException:
         raise

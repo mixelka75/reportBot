@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from app.schemas import WriteoffTransferCreate
@@ -18,6 +20,7 @@ class WriteoffTransferCRUD:
             self,
             db: AsyncSession,
             report_data: WriteoffTransferCreate,
+            date: datetime
     ) -> WriteoffTransfer:
         """
         Создает акт списания/перемещения.
@@ -59,7 +62,7 @@ class WriteoffTransferCRUD:
 
             # Запускаем отправку в Telegram в фоне
             if self.telegram_service:
-                asyncio.create_task(self._send_to_telegram_background(db_report.id))
+                asyncio.create_task(self._send_to_telegram_background(db_report.id, date))
 
             return db_report
 
@@ -72,7 +75,7 @@ class WriteoffTransferCRUD:
             await db.rollback()
             raise e
 
-    async def _send_to_telegram_background(self, report_id: int):
+    async def _send_to_telegram_background(self, report_id: int, date: datetime):
         """
         Фоновая отправка акта в Telegram.
         """
@@ -99,12 +102,13 @@ class WriteoffTransferCRUD:
                         'report_date': db_report.report_date,
                         'created_date': db_report.created_date,
                         'writeoffs': db_report.writeoffs,
-                        'transfers': db_report.transfers
+                        'transfers': db_report.transfers,
+                        "date": date
                     }
 
                     # Отправляем в Telegram (с таймаутом)
                     telegram_success = await asyncio.wait_for(
-                        self.telegram_service.send_writeoff_transfer_report(report_dict),
+                        self.telegram_service.send_writeoff_transfer_report(report_dict, date),
                         timeout=30  # 30 секунд таймаут
                     )
 
