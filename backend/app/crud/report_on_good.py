@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ReportOnGoodsCreate
 from app.models import ReportOnGoods
 from app.services import TelegramService
-
+from datetime import datetime
 
 class ReportOnGoodCRUD:
     def __init__(self):
@@ -11,7 +11,8 @@ class ReportOnGoodCRUD:
     async def create_report_on_good(
             self,
             db: AsyncSession,
-            report_data: ReportOnGoodsCreate
+            report_data: ReportOnGoodsCreate,
+            date: datetime
     ):
         kuxnya_dict = []
         for kux in report_data.kuxnya:
@@ -58,7 +59,7 @@ class ReportOnGoodCRUD:
                 'upakovki_xoz': db_report.upakovki_xoz,
             }
 
-            await self.telegram_service.send_goods_report(report_dict)
+            await self.telegram_service.send_goods_report(report_dict, date)
 
         except Exception as e:
             print(f"Ошибка отправки отчета товаров в Telegram: {str(e)}")

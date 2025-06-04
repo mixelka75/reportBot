@@ -159,6 +159,22 @@ const TelegramWebApp = () => {
 
   const locations = LOCATIONS
 
+  const getTodayDate = useCallback(() => {
+    const now = new Date();
+    // Создаем дату в московском времени
+    const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+    return mskTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  }, []);
+
+  // Функция для получения вчерашней даты в формате YYYY-MM-DD
+  const getYesterdayDate = useCallback(() => {
+    const now = new Date();
+    const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+    mskTime.setDate(mskTime.getDate() - 1); // Вычитаем один день
+    return mskTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  }, []);
+
+
   // Функции для работы с черновиками
   const saveDraft = useCallback(async (formType, formData) => {
     const draftId = currentDraftId || Date.now().toString();
@@ -1626,7 +1642,7 @@ const TelegramWebApp = () => {
   const ReceivingForm = () => {
     const [formData, setFormData] = useState({
       location: '',
-      date: getCurrentDate(), // ИСПРАВЛЕНО: используем date picker вместо readonly
+      date: getTodayDate(), // ИЗМЕНЕНО: datetime вместо getCurrentDate()
       kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }),
       bar: Array(10).fill({ name: '', quantity: '', unit: '' }),
       packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
@@ -1712,6 +1728,7 @@ const TelegramWebApp = () => {
 
         // Основные поля
         apiFormData.append('location', formData.location);
+        apiFormData.append('date', formData.date);
 
         // Кухня
         const kuxnyaItems = formData.kitchen
@@ -1764,6 +1781,14 @@ const TelegramWebApp = () => {
       }
     }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
+    const getYesterdayDate = useCallback(() => {
+      const now = new Date();
+      // Создаем дату в московском времени
+      const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+      mskTime.setDate(mskTime.getDate() - 1); // Вычитаем один день
+      return mskTime.toISOString().split('T')[0];
+    }, []);
+
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
@@ -1810,9 +1835,39 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-          {/* Date - ИСПРАВЛЕНО: выбор даты */}
+          {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
+
+            {/* Кнопки быстрого выбора */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => handleInputChange('date', getTodayDate())}
+                disabled={isLoading}
+                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
+                  formData.date === getTodayDate()
+                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                }`}
+              >
+                📅 Сегодня
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInputChange('date', getYesterdayDate())}
+                disabled={isLoading}
+                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
+                  formData.date === getYesterdayDate()
+                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                }`}
+              >
+                📅 Вчера
+              </button>
+            </div>
+
+            {/* Поле ввода даты */}
             <input
               type="date"
               value={formData.date}
@@ -1821,6 +1876,7 @@ const TelegramWebApp = () => {
               className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors"
             />
           </div>
+
 
           {/* Kitchen Section */}
           <div className="mb-6">
@@ -2134,6 +2190,15 @@ const TelegramWebApp = () => {
       }
     }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft]);
 
+
+    const getYesterdayDate = useCallback(() => {
+      const now = new Date();
+      // Создаем дату в московском времени
+      const mskTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+      mskTime.setDate(mskTime.getDate() - 1); // Вычитаем один день
+      return mskTime.toISOString().split('T')[0];
+    }, []);
+
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
         <div className="max-w-md mx-auto">
@@ -2180,9 +2245,39 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-          {/* Date - ИСПРАВЛЕНО: выбор даты согласно ТЗ */}
+         {/* Date - ИСПРАВЛЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
+
+            {/* Кнопки быстрого выбора */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => handleInputChange('date', getCurrentDate())}
+                disabled={isLoading}
+                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
+                  formData.date === getCurrentDate()
+                    ? 'bg-red-500 border-red-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                }`}
+              >
+                📅 Сегодня
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInputChange('date', getYesterdayDate())}
+                disabled={isLoading}
+                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
+                  formData.date === getYesterdayDate()
+                    ? 'bg-red-500 border-red-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                }`}
+              >
+                📅 Вчера
+              </button>
+            </div>
+
+            {/* Поле ввода даты */}
             <input
               type="date"
               value={formData.date}

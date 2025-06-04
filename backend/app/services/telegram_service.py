@@ -347,7 +347,7 @@ class TelegramService:
             print(f"⚠️  Отчет инвентаризации создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def send_goods_report(self, report_data: Dict[str, Any]) -> bool:
+    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime) -> bool:
         """Отправляет отчет приема товаров в Telegram"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
@@ -357,7 +357,7 @@ class TelegramService:
             topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
 
             # Форматируем сообщение
-            message = self._format_goods_report_message(report_data)
+            message = self._format_goods_report_message(report_data, date)
 
             # Отправляем сообщение
             success = await self._send_message(self.chat_id, message, topic_id)
@@ -479,12 +479,12 @@ class TelegramService:
 
         return message
 
-    def _format_goods_report_message(self, data: Dict[str, Any]) -> str:
+    def _format_goods_report_message(self, data: Dict[str, Any], date: datetime) -> str:
         """Форматирует сообщение отчета приема товаров"""
         message = f"""📋 <b>ОТЧЁТ ПРИЁМА ТОВАРА</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-🕐 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Дата:</b> {date.strftime('%d.%m.%Y')} {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%H:%M')}
 
 """
 

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, status, Form, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import ReportOnGoodCRUD
@@ -112,7 +114,7 @@ async def create_report_on_goods(
 Пример: [{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]""",
             example='[{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]'
         ),
-
+        date: datetime = Form(...),
         db: AsyncSession = Depends(get_db),
 ) -> ReportOnGoodsResponse:
     """
@@ -283,7 +285,7 @@ async def create_report_on_goods(
             upakovki=upakovky_list,
         )
 
-        return await repg.create_report_on_good(db, report_on_goods_data)
+        return await repg.create_report_on_good(db, report_on_goods_data, date=date)
 
     except HTTPException:
         raise
