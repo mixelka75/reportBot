@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, status, Form, Depends, HTTPException
+from fastapi import APIRouter, status, Form, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import ReportOnGoodCRUD
 from app.schemas import ReportOnGoodsCreate, ReportOnGoodsResponse, KuxnyaJson, BarJson, UpakovkyJson
@@ -114,7 +114,9 @@ async def create_report_on_goods(
 Пример: [{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]""",
             example='[{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]'
         ),
+
         date: datetime = Form(...),
+        photos: List[UploadFile] = File(None, description="Фотографии товаров/накладных"),
         db: AsyncSession = Depends(get_db),
 ) -> ReportOnGoodsResponse:
     """
@@ -285,7 +287,17 @@ async def create_report_on_goods(
             upakovki=upakovky_list,
         )
 
-        return await repg.create_report_on_good(db, report_on_goods_data, date=date)
+        photos_data = []
+        if photos:
+            for photo in photos:
+                content = await photo.read()
+                photos_data.append({
+                    "filename": photo.filename,
+                    "content": content,
+                    "content_type": photo.content_type
+                })
+
+        return await repg.create_report_on_good(db, report_on_goods_data, date=date, photos=photos_data)
 
     except HTTPException:
         raise

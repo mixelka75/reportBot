@@ -181,6 +181,8 @@ const TelegramWebApp = () => {
 
     // Конвертируем фото в base64 если есть
     const dataToSave = { ...formData };
+
+    // Обрабатываем одиночное фото (для отчета смены)
     if (dataToSave.photo && dataToSave.photo instanceof File) {
       try {
         dataToSave.photoBase64 = await fileToBase64(dataToSave.photo);
@@ -189,6 +191,28 @@ const TelegramWebApp = () => {
       } catch (error) {
         console.warn('Не удалось сохранить фото в черновик:', error);
         delete dataToSave.photo;
+      }
+    }
+
+    // Обрабатываем массив фотографий (для отчета приема товаров)
+    if (dataToSave.photos && Array.isArray(dataToSave.photos) && dataToSave.photos.length > 0) {
+      try {
+        dataToSave.photosBase64 = [];
+        for (const photo of dataToSave.photos) {
+          if (photo instanceof File) {
+            const base64 = await fileToBase64(photo);
+            dataToSave.photosBase64.push({
+              base64: base64,
+              name: photo.name,
+              type: photo.type,
+              size: photo.size
+            });
+          }
+        }
+        delete dataToSave.photos;
+      } catch (error) {
+        console.warn('Не удалось сохранить фотографии в черновик:', error);
+        delete dataToSave.photos;
       }
     }
 
@@ -235,8 +259,10 @@ const TelegramWebApp = () => {
       setCurrentDraftId(draftId);
       setCurrentForm(draft.type);
 
-      // Восстанавливаем фото из base64
+      // Восстанавливаем данные
       const draftData = { ...draft.data };
+
+      // Восстанавливаем одиночное фото из base64 (для отчета смены)
       if (draftData.photoBase64 && draftData.photoName) {
         try {
           draftData.photo = base64ToFile(draftData.photoBase64, draftData.photoName);
@@ -244,6 +270,21 @@ const TelegramWebApp = () => {
           delete draftData.photoName;
         } catch (error) {
           console.warn('Не удалось восстановить фото из черновика:', error);
+        }
+      }
+
+      // Восстанавливаем массив фотографий из base64 (для отчета приема товаров)
+      if (draftData.photosBase64 && Array.isArray(draftData.photosBase64)) {
+        try {
+          draftData.photos = [];
+          for (const photoData of draftData.photosBase64) {
+            const file = base64ToFile(photoData.base64, photoData.name);
+            draftData.photos.push(file);
+          }
+          delete draftData.photosBase64;
+        } catch (error) {
+          console.warn('Не удалось восстановить фотографии из черновика:', error);
+          draftData.photos = [];
         }
       }
 
@@ -1643,6 +1684,7 @@ const TelegramWebApp = () => {
     const [formData, setFormData] = useState({
       location: '',
       date: '', // ИЗМЕНЕНО: datetime вместо getCurrentDate()
+      photos: [],
       kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }),
       bar: Array(10).fill({ name: '', quantity: '', unit: '' }),
       packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
@@ -1664,7 +1706,7 @@ const TelegramWebApp = () => {
       const hasBarItems = data.bar.some(item => item.name || item.quantity || item.unit);
       const hasPackagingItems = data.packaging.some(item => item.name || item.quantity || item.unit);
 
-      if (data.location || hasKitchenItems || hasBarItems || hasPackagingItems) {
+      if (data.location || data.photos.length > 0 || hasKitchenItems || hasBarItems || hasPackagingItems) {
         await saveDraft('receiving', data);
       }
     }, [saveDraft]);
@@ -1700,12 +1742,47 @@ const TelegramWebApp = () => {
       }));
     }, []);
 
+    const addPhotos = useCallback((files) => {
+      const fileArray = Array.from(files);
+      const validFiles = fileArray.filter(file => {
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'];
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        return validTypes.includes(file.type) && file.size <= maxSize;
+      });
+
+      if (validFiles.length !== fileArray.length) {
+        alert('Некоторые файлы были пропущены. Разрешены только изображения до 10МБ.');
+      }
+
+      setFormData(prev => {
+        const newPhotos = [...prev.photos, ...validFiles].slice(0, 10); // Максимум 10 фотографий
+        return { ...prev, photos: newPhotos };
+      });
+
+      // Очищаем ошибку валидации при добавлении фото
+      if (validationErrors.photos) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.photos;
+          return newErrors;
+        });
+      }
+    }, [validationErrors]);
+
+    const removePhoto = useCallback((index) => {
+      setFormData(prev => {
+        const newPhotos = prev.photos.filter((_, i) => i !== index);
+        return { ...prev, photos: newPhotos };
+      });
+    }, []);
+
     const handleSubmit = useCallback(async () => {
       // Валидация
       const errors = {};
 
       if (!formData.location) errors.location = 'Выберите локацию';
       if (!formData.date) errors.date = 'Выберите дату';
+      if (formData.photos.length === 0) errors.photos = 'Добавьте хотя бы одну фотографию накладных';
 
       // Проверяем, что есть хотя бы одна заполненная позиция
       const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity && item.unit);
@@ -1730,6 +1807,10 @@ const TelegramWebApp = () => {
         // Основные поля
         apiFormData.append('location', formData.location);
         apiFormData.append('date', formData.date);
+
+        formData.photos.forEach((photo, index) => {
+          apiFormData.append(`invoice_photos`, photo);
+        });
 
         // Кухня
         const kuxnyaItems = formData.kitchen
@@ -1891,6 +1972,124 @@ const TelegramWebApp = () => {
           </div>
 
 
+          {/* Photos Section - ДОБАВЛЕНО: Фотографии накладных */}
+
+          <div className="mb-6">
+              <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
+                <Camera size={16} className="text-purple-500" />
+                Фотографии накладных *
+              </label>
+              <p className="text-xs text-gray-600 mb-3">
+                Добавьте фотографии накладных на принятый товар (до 10 фотографий)
+              </p>
+
+              {/* Скрытый input для фотографий */}
+              <input
+                ref={(ref) => { window.invoicePhotosInput = ref; }}
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    addPhotos(e.target.files);
+                  }
+                }}
+                disabled={isLoading}
+                className="hidden"
+                name="invoice_photos"
+                id="invoice_photos"
+              />
+
+              {/* Кнопка загрузки фотографий */}
+              <button
+                type="button"
+                onClick={() => window.invoicePhotosInput?.click()}
+                disabled={isLoading || formData.photos.length >= 10}
+                className={`w-full photo-upload-button ${
+                  validationErrors.photos 
+                    ? 'border-red-400 bg-red-50 hover:bg-red-100' 
+                    : formData.photos.length >= 10
+                      ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
+                      : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <Camera size={24} className="text-purple-600" />
+                  <div className="text-center">
+                    <div className="font-semibold text-purple-700 text-lg">
+                      {formData.photos.length >= 10
+                        ? 'Достигнут максимум (10 фото)'
+                        : 'Добавить фотографии накладных'
+                      }
+                    </div>
+                    <div className="text-sm text-purple-600">
+                      {formData.photos.length > 0
+                        ? `Загружено: ${formData.photos.length} из 10`
+                        : 'Можно выбрать несколько файлов'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Показываем загруженные фотографии */}
+              {formData.photos.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-medium text-green-700 mb-2">
+                    ✅ Загруженные фотографии ({formData.photos.length}):
+                  </h4>
+                  <div className="space-y-2">
+                    {formData.photos.map((photo, index) => (
+                      <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-start gap-3">
+                          <Image size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-green-700 truncate mb-1">
+                              📄 {photo.name}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-green-600">
+                              <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>
+                              <span>🖼️ {photo.type}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index)}
+                            className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                            disabled={isLoading}
+                          >
+                            <XCircle size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Сообщение об ошибке или подсказка */}
+              {formData.photos.length === 0 && (
+                <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
+                  validationErrors.photos 
+                    ? 'border-red-300 bg-red-50 text-red-600' 
+                    : 'border-gray-300 bg-gray-50 text-gray-500'
+                }`}>
+                  <Camera size={32} className="mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium mb-1">
+                    {validationErrors.photos
+                      ? '❌ Необходимо добавить фотографии накладных'
+                      : '📸 Нажмите кнопку выше для добавления фотографий'
+                    }
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Рекомендуется 5-10 четких фотографий накладных
+                  </p>
+                </div>
+              )}
+            </div>
+
+
           {/* Kitchen Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
@@ -2050,6 +2249,10 @@ const TelegramWebApp = () => {
                   setCurrentDraftId(null);
                 }
                 setValidationErrors({});
+                // Очищаем input для фотографий
+                if (window.invoicePhotosInput) {
+                  window.invoicePhotosInput.value = '';
+                }
                 window.location.reload();
               }}
               disabled={isLoading}

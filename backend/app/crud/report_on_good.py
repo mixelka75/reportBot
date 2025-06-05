@@ -1,3 +1,5 @@
+from typing import Dict, List, Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ReportOnGoodsCreate
 from app.models import ReportOnGoods
@@ -12,7 +14,8 @@ class ReportOnGoodCRUD:
             self,
             db: AsyncSession,
             report_data: ReportOnGoodsCreate,
-            date: datetime
+            date: datetime,
+            photos: List[Dict[str, Any]]
     ):
         kuxnya_dict = []
         for kux in report_data.kuxnya:
@@ -59,7 +62,7 @@ class ReportOnGoodCRUD:
                 'upakovki_xoz': db_report.upakovki_xoz,
             }
 
-            await self.telegram_service.send_goods_report(report_dict, date)
+            await self.telegram_service.send_goods_report(report_dict, date, photos=photos)
 
         except Exception as e:
             print(f"Ошибка отправки отчета товаров в Telegram: {str(e)}")
