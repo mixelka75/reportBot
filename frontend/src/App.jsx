@@ -1876,9 +1876,12 @@ const TelegramWebApp = () => {
             readOnly
             className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
           />
-            {!formData.date && (
+          {!formData.date && !validationErrors.date && (
             <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
-            )}
+          )}
+          {validationErrors.date && (
+            <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
+          )}
           </div>
 
 
@@ -2287,15 +2290,18 @@ const TelegramWebApp = () => {
 
             {/* Поле ввода даты */}
             <input
-              type="text"
-              value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
-              data-placeholder="Выберите дату"
-            />
-            {!formData.date && (
+            type="text"
+            value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
+            readOnly
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
+          />
+          {!formData.date && !validationErrors.date && (
             <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
-            )}
+          )}
+          {validationErrors.date && (
+            <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
+          )}
+
           </div>
 
           {/* Write-offs Section */}

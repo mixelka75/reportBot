@@ -87,34 +87,28 @@ class ShiftReportCreate(BaseModel):
 
     income_entries: List[IncomeEntry] = Field(
         default_factory=list,
-        max_items=5,
         description="Список приходов денег (максимум 5)"
     )
     expense_entries: List[ExpenseEntry] = Field(
         default_factory=list,
-        max_items=10,
         description="Список расходов денег (максимум 10)"
     )
 
     total_revenue: Decimal = Field(
         ...,
         description="Общая выручка из системы",
-        example=15000.50
     )
     returns: Decimal = Field(
         default=0,
         description="Сумма возвратов",
-        example=200.00
     )
     acquiring: Decimal = Field(
         default=0,
         description="Эквайринг (оплата картами)",
-        example=5000.00
     )
     qr_code: Decimal = Field(
         default=0,
         description="Оплата по QR коду",
-        example=1500.00
     )
     online_app: Decimal = Field(
         default=0,
