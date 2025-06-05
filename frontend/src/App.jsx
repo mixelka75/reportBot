@@ -1837,6 +1837,7 @@ const TelegramWebApp = () => {
           </div>
 
           {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
+          {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
             <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
@@ -1871,17 +1872,22 @@ const TelegramWebApp = () => {
 
             {/* Поле ввода даты */}
             <input
-            type="text"
-            value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата'}
-            readOnly
-            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
-          />
-          {!formData.date && !validationErrors.date && (
-            <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
-          )}
-          {validationErrors.date && (
-            <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
-          )}
+              type="text"
+              value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата не выбрана'}
+              readOnly
+              id="date-field"
+              className={`w-full p-3 border rounded-lg text-center transition-colors ${
+                validationErrors.date 
+                  ? 'border-red-400 bg-red-50 text-red-700' 
+                  : 'bg-gray-100 border-gray-300 text-gray-700'
+              }`}
+            />
+            {!formData.date && !validationErrors.date && (
+              <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше для выбора даты</p>
+            )}
+            {validationErrors.date && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
+            )}
           </div>
 
 
@@ -2255,7 +2261,7 @@ const TelegramWebApp = () => {
             </div>
           </div>
 
-          {/* Date - ИСПРАВЛЕНО: выбор даты с кнопками быстрого выбора */}
+          {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
           <div className="mb-6">
             <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
             <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
@@ -2264,11 +2270,11 @@ const TelegramWebApp = () => {
             <div className="flex gap-2 mb-3">
               <button
                 type="button"
-                onClick={() => handleInputChange('date', getCurrentDate())}
+                onClick={() => handleInputChange('date', getTodayDate())}
                 disabled={isLoading}
                 className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
-                  formData.date === getCurrentDate()
-                    ? 'bg-red-500 border-red-500 text-white shadow-md'
+                  formData.date === getTodayDate()
+                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
                     : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
                 }`}
               >
@@ -2280,7 +2286,7 @@ const TelegramWebApp = () => {
                 disabled={isLoading}
                 className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
                   formData.date === getYesterdayDate()
-                    ? 'bg-red-500 border-red-500 text-white shadow-md'
+                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
                     : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
                 }`}
               >
@@ -2290,18 +2296,22 @@ const TelegramWebApp = () => {
 
             {/* Поле ввода даты */}
             <input
-            type="text"
-            value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
-            readOnly
-            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
-          />
-          {!formData.date && !validationErrors.date && (
-            <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше или выберите дату</p>
-          )}
-          {validationErrors.date && (
-            <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
-          )}
-
+              type="text"
+              value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата не выбрана'}
+              readOnly
+              id="date-field"
+              className={`w-full p-3 border rounded-lg text-center transition-colors ${
+                validationErrors.date 
+                  ? 'border-red-400 bg-red-50 text-red-700' 
+                  : 'bg-gray-100 border-gray-300 text-gray-700'
+              }`}
+            />
+            {!formData.date && !validationErrors.date && (
+              <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше для выбора даты</p>
+            )}
+            {validationErrors.date && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
+            )}
           </div>
 
           {/* Write-offs Section */}
