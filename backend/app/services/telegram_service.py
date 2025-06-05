@@ -485,7 +485,7 @@ class TelegramService:
             return False
         except Exception as e:
             print(f"Неожиданная ошибка при отправке медиа группы в Telegram: {str(e)}")
-            return False
+            return False    
 
     def _format_shift_report_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение отчета смены - ОБНОВЛЕНО с новыми полями"""

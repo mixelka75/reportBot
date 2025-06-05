@@ -1742,22 +1742,43 @@ const TelegramWebApp = () => {
       }));
     }, []);
 
+        // ИСПРАВЛЕННАЯ функция addPhotos
     const addPhotos = useCallback((files) => {
-      const fileArray = Array.from(files);
+      // Проверяем что files является массивом или FileList
+      const fileArray = Array.isArray(files) ? files : Array.from(files || []);
+
       const validFiles = fileArray.filter(file => {
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'];
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        return validTypes.includes(file.type) && file.size <= maxSize;
+        // Расширенный список поддерживаемых форматов
+        const validTypes = [
+          'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+          'image/bmp', 'image/webp', 'image/heic', 'image/heif'
+        ];
+        const maxSize = 50 * 1024 * 1024; // Увеличиваем до 50MB для HEIC
+
+        // Дополнительная проверка по расширению файла
+        const fileName = file.name.toLowerCase();
+        const hasValidExtension = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif']
+          .some(ext => fileName.endsWith(ext));
+
+        return (validTypes.includes(file.type) || hasValidExtension) && file.size <= maxSize;
       });
 
       if (validFiles.length !== fileArray.length) {
-        alert('Некоторые файлы были пропущены. Разрешены только изображения до 10МБ.');
+        alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
       }
 
       setFormData(prev => {
-        const newPhotos = [...prev.photos, ...validFiles].slice(0, 10); // Максимум 10 фотографий
+        const newPhotos = [...prev.photos, ...validFiles].slice(0, 10);
         return { ...prev, photos: newPhotos };
       });
+
+      // Очищаем input после загрузки
+      if (window.invoicePhotosInput) {
+        window.invoicePhotosInput.value = '';
+      }
+      if (window.singlePhotoInput) {
+        window.singlePhotoInput.value = '';
+      }
 
       // Очищаем ошибку валидации при добавлении фото
       if (validationErrors.photos) {
@@ -1972,8 +1993,7 @@ const TelegramWebApp = () => {
           </div>
 
 
-          {/* Photos Section - ДОБАВЛЕНО: Фотографии накладных */}
-
+          {/* Photos Section - ИСПРАВЛЕНО: Улучшенная загрузка фотографий */}
           <div className="mb-6">
               <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
                 <Camera size={16} className="text-purple-500" />
@@ -1983,16 +2003,15 @@ const TelegramWebApp = () => {
                 Добавьте фотографии накладных на принятый товар (до 10 фотографий)
               </p>
 
-              {/* Скрытый input для фотографий */}
+              {/* Основной input для множественной загрузки - ИСПРАВЛЕНО */}
               <input
                 ref={(ref) => { window.invoicePhotosInput = ref; }}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
                 multiple
-                capture="environment"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
-                    addPhotos(e.target.files);
+                    addPhotos(Array.from(e.target.files));
                   }
                 }}
                 disabled={isLoading}
@@ -2001,12 +2020,28 @@ const TelegramWebApp = () => {
                 id="invoice_photos"
               />
 
-              {/* Кнопка загрузки фотографий */}
+              {/* Fallback input для одиночной загрузки - ДОБАВЛЕНО */}
+              <input
+                ref={(ref) => { window.singlePhotoInput = ref; }}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    addPhotos([e.target.files[0]]);
+                  }
+                }}
+                disabled={isLoading}
+                className="hidden"
+                name="single_photo"
+                id="single_photo"
+              />
+
+              {/* Основная кнопка загрузки фотографий */}
               <button
                 type="button"
                 onClick={() => window.invoicePhotosInput?.click()}
                 disabled={isLoading || formData.photos.length >= 10}
-                className={`w-full photo-upload-button ${
+                className={`w-full photo-upload-button mb-3 ${
                   validationErrors.photos 
                     ? 'border-red-400 bg-red-50 hover:bg-red-100' 
                     : formData.photos.length >= 10
@@ -2031,6 +2066,16 @@ const TelegramWebApp = () => {
                     </div>
                   </div>
                 </div>
+              </button>
+
+              {/* Fallback кнопка для одиночной загрузки - ДОБАВЛЕНО */}
+              <button
+                type="button"
+                onClick={() => window.singlePhotoInput?.click()}
+                disabled={isLoading || formData.photos.length >= 10}
+                className="w-full p-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-600 mb-4"
+              >
+                📱 Добавить по одной фотографии (если основная кнопка не работает)
               </button>
 
               {/* Показываем загруженные фотографии */}
@@ -2068,7 +2113,7 @@ const TelegramWebApp = () => {
                 </div>
               )}
 
-              {/* Сообщение об ошибке или подсказка */}
+              {/* Сообщение об ошибке или подсказка - УЛУЧШЕНО */}
               {formData.photos.length === 0 && (
                 <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
                   validationErrors.photos 
@@ -2082,8 +2127,11 @@ const TelegramWebApp = () => {
                       : '📸 Нажмите кнопку выше для добавления фотографий'
                     }
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mb-2">
                     Рекомендуется 5-10 четких фотографий накладных
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    💡 Если основная кнопка не работает, используйте кнопку "по одной фотографии"
                   </p>
                 </div>
               )}
@@ -2249,9 +2297,12 @@ const TelegramWebApp = () => {
                   setCurrentDraftId(null);
                 }
                 setValidationErrors({});
-                // Очищаем input для фотографий
+                // Очищаем все input для фотографий - ИСПРАВЛЕНО
                 if (window.invoicePhotosInput) {
                   window.invoicePhotosInput.value = '';
+                }
+                if (window.singlePhotoInput) {
+                  window.singlePhotoInput.value = '';
                 }
                 window.location.reload();
               }}
