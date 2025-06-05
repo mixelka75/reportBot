@@ -6,7 +6,7 @@ from pathlib import Path
 import json
 import socket
 from sqlalchemy.ext.asyncio import AsyncSession
-
+import io
 from app.core.config import settings
 from app.schemas.telegram import TelegramMessage
 
@@ -344,8 +344,9 @@ class TelegramService:
             print(f"⚠️  Отчет инвентаризации создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime, photos: List[Dict[str, Any]]) -> bool:
-        """Отправляет отчет приема товаров в Telegram"""
+    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime,
+                                photos: List[Dict[str, Any]]) -> bool:
+        """Отправляет отчет приема товаров в Telegram с фотографиями"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
             return False
@@ -356,8 +357,28 @@ class TelegramService:
             # Форматируем сообщение
             message = self._format_goods_report_message(report_data, date)
 
-            # Отправляем сообщение
-            success = await self._send_message(self.chat_id, message, topic_id)
+            success = False
+
+            # Если есть фотографии, отправляем их с сообщением
+            if photos and len(photos) > 0:
+                # Если одна фотография - отправляем как фото с подписью
+                if len(photos) == 1:
+                    success = await self._send_photo_with_caption_from_bytes(
+                        message,
+                        photos[0]['content'],
+                        photos[0]['filename'],
+                        topic_id
+                    )
+                else:
+                    # Если несколько фотографий - отправляем как медиа-группу
+                    success = await self._send_media_group_with_caption(
+                        message,
+                        photos,
+                        topic_id
+                    )
+            else:
+                # Если фотографий нет - отправляем только текстовое сообщение
+                success = await self._send_message(self.chat_id, message, topic_id)
 
             if success:
                 print(f"✅ Отчет приема товаров отправлен в Telegram для локации: {report_data.get('location')}")
@@ -369,6 +390,101 @@ class TelegramService:
 
         except Exception as e:
             print(f"⚠️  Отчет приема товаров создан, но ошибка отправки в Telegram: {str(e)}")
+            return False
+
+    async def _send_photo_with_caption_from_bytes(self, caption: str, photo_bytes: bytes, filename: str,
+                                                  topic_id: Optional[int] = None) -> bool:
+        """Отправляет фото из байтов с подписью"""
+        try:
+            url = f"{self.base_url}/sendPhoto"
+
+            # Создаем FormData для multipart/form-data
+            data = aiohttp.FormData()
+            data.add_field('chat_id', str(self.chat_id))
+            data.add_field('caption', caption)
+            data.add_field('parse_mode', 'HTML')
+
+            if topic_id:
+                data.add_field('message_thread_id', str(topic_id))
+
+            # Добавляем файл из байтов
+            data.add_field('photo', io.BytesIO(photo_bytes), filename=filename or 'photo.jpg',
+                           content_type='image/jpeg')
+
+            # Устанавливаем таймаут для подключения
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"Telegram API ошибка (фото из байтов): {response.status} - {response_text}")
+                    return response.status == 200
+
+        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
+            print(f"Ошибка сети при отправке фото из байтов в Telegram: {str(e)}")
+            return False
+        except Exception as e:
+            print(f"Неожиданная ошибка при отправке фото из байтов в Telegram: {str(e)}")
+            return False
+
+    async def _send_media_group_with_caption(self, caption: str, photos: List[Dict[str, Any]],
+                                             topic_id: Optional[int] = None) -> bool:
+        """Отправляет группу фотографий с подписью к первой фотографии"""
+        try:
+            url = f"{self.base_url}/sendMediaGroup"
+
+            # Создаем FormData для multipart/form-data
+            data = aiohttp.FormData()
+            data.add_field('chat_id', str(self.chat_id))
+
+            if topic_id:
+                data.add_field('message_thread_id', str(topic_id))
+
+            # Подготавливаем медиа массив
+            media = []
+            for i, photo in enumerate(photos):
+                photo_key = f"photo_{i}"
+
+                # Добавляем файл
+                data.add_field(
+                    photo_key,
+                    io.BytesIO(photo['content']),
+                    filename=photo.get('filename', f'photo_{i}.jpg'),
+                    content_type=photo.get('content_type', 'image/jpeg')
+                )
+
+                # Создаем объект медиа
+                media_item = {
+                    "type": "photo",
+                    "media": f"attach://{photo_key}"
+                }
+
+                # Добавляем подпись к первой фотографии
+                if i == 0:
+                    media_item["caption"] = caption
+                    media_item["parse_mode"] = "HTML"
+
+                media.append(media_item)
+
+            # Добавляем медиа массив как JSON
+            data.add_field('media', json.dumps(media))
+
+            # Устанавливаем таймаут для подключения
+            timeout = aiohttp.ClientTimeout(total=60, connect=15)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"Telegram API ошибка (медиа группа): {response.status} - {response_text}")
+                    return response.status == 200
+
+        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
+            print(f"Ошибка сети при отправке медиа группы в Telegram: {str(e)}")
+            return False
+        except Exception as e:
+            print(f"Неожиданная ошибка при отправке медиа группы в Telegram: {str(e)}")
             return False
 
     def _format_shift_report_message(self, data: Dict[str, Any]) -> str:

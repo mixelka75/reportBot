@@ -1809,7 +1809,7 @@ const TelegramWebApp = () => {
         apiFormData.append('date', formData.date);
 
         formData.photos.forEach((photo, index) => {
-          apiFormData.append(`invoice_photos`, photo);
+          apiFormData.append(`photos`, photo);
         });
 
         // Кухня
