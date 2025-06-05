@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import aiohttp
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 import json
 import socket
@@ -344,7 +344,7 @@ class TelegramService:
             print(f"⚠️  Отчет инвентаризации создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime) -> bool:
+    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime, photos: List[Dict[str, Any]]) -> bool:
         """Отправляет отчет приема товаров в Telegram"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
