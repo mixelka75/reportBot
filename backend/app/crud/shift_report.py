@@ -179,7 +179,7 @@ class ShiftReportCRUD:
 
                     # Отправляем в Telegram (с таймаутом)
                     telegram_success = await asyncio.wait_for(
-                        self.telegram_service.(report_dict, db_report.photo_path),
+                        self.telegram_service.send_shift_report(report_dict, db_report.photo_path),
                         timeout=30  # 30 секунд таймаут
                     )
 

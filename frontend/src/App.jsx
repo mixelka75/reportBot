@@ -2003,6 +2003,23 @@ const TelegramWebApp = () => {
                 Добавьте фотографии накладных на принятый товар (до 10 фотографий)
               </p>
 
+              {/* Основной input для множественной загрузки - ИСПРАВЛЕНО */}
+              <input
+                ref={(ref) => { window.invoicePhotosInput = ref; }}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    addPhotos(Array.from(e.target.files));
+                  }
+                }}
+                disabled={isLoading}
+                className="hidden"
+                name="invoice_photos"
+                id="invoice_photos"
+              />
+
               {/* Fallback input для одиночной загрузки - ДОБАВЛЕНО */}
               <input
                 ref={(ref) => { window.singlePhotoInput = ref; }}
@@ -2019,12 +2036,18 @@ const TelegramWebApp = () => {
                 id="single_photo"
               />
 
-              {/* Fallback кнопка для одиночной загрузки - ДОБАВЛЕНО */}
+              {/* Основная кнопка загрузки фотографий */}
               <button
                 type="button"
-                onClick={() => window.singlePhotoInput?.click()}
+                onClick={() => window.invoicePhotosInput?.click()}
                 disabled={isLoading || formData.photos.length >= 10}
-                className="w-full p-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-600 mb-4"
+                className={`w-full photo-upload-button mb-3 ${
+                  validationErrors.photos 
+                    ? 'border-red-400 bg-red-50 hover:bg-red-100' 
+                    : formData.photos.length >= 10
+                      ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
+                      : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
+                }`}
               >
                 <div className="flex items-center justify-center gap-3">
                   <Camera size={24} className="text-purple-600" />
@@ -2043,6 +2066,16 @@ const TelegramWebApp = () => {
                     </div>
                   </div>
                 </div>
+              </button>
+
+              {/* Fallback кнопка для одиночной загрузки - ДОБАВЛЕНО */}
+              <button
+                type="button"
+                onClick={() => window.singlePhotoInput?.click()}
+                disabled={isLoading || formData.photos.length >= 10}
+                className="w-full p-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm text-gray-600 mb-4"
+              >
+                📱 Добавить по одной фотографии (если основная кнопка не работает)
               </button>
 
               {/* Показываем загруженные фотографии */}
