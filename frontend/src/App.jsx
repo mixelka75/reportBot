@@ -1872,7 +1872,7 @@ const TelegramWebApp = () => {
             {/* Поле ввода даты */}
             <input
             type="text"
-            value={new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU')}
+            value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата'}
             readOnly
             className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-center"
           />
