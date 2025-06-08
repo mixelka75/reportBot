@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Send, RefreshCw, Home, Plus } from 'lucide-react';
+import { MapPin, Send, RefreshCw, Home } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { useAutoSave } from '../../hooks/useAutoSave';
@@ -23,9 +23,9 @@ export const WriteOffForm = ({
 }) => {
   const [formData, setFormData] = useState({
     location: '',
-    date: '',
-    writeoffs: Array(5).fill({ name: '', weight: '', unit: '', reason: '' }),
-    transfers: Array(5).fill({ name: '', weight: '', unit: '', reason: '' })
+    date: '', // ИСПРАВЛЕНО: выбор даты
+    writeOffs: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }), // ИСПРАВЛЕНО: 10 элементов
+    transfers: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }) // ИСПРАВЛЕНО: 10 элементов
   });
 
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
@@ -42,10 +42,10 @@ export const WriteOffForm = ({
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
-    const hasWriteoffs = data.writeoffs.some(item => item.name || item.weight || item.unit || item.reason);
+    const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.unit || item.reason);
     const hasTransfers = data.transfers.some(item => item.name || item.weight || item.unit || item.reason);
 
-    if (data.location || data.date || hasWriteoffs || hasTransfers) {
+    if (data.location || hasWriteOffs || hasTransfers) {
       await saveDraft('writeoff', data);
     }
   }, [saveDraft]);
@@ -66,19 +66,12 @@ export const WriteOffForm = ({
     }
   }, [validationErrors, setValidationErrors]);
 
-  const handleArrayChange = useCallback((category, index, field, value) => {
+  const handleArrayChange = useCallback((arrayName, index, field, value) => {
     setFormData(prev => {
-      const newArray = [...prev[category]];
+      const newArray = [...prev[arrayName]];
       newArray[index] = { ...newArray[index], [field]: value };
-      return { ...prev, [category]: newArray };
+      return { ...prev, [arrayName]: newArray };
     });
-  }, []);
-
-  const addArrayItem = useCallback((category) => {
-    setFormData(prev => ({
-      ...prev,
-      [category]: [...prev[category], { name: '', weight: '', unit: '', reason: '' }]
-    }));
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -88,12 +81,12 @@ export const WriteOffForm = ({
     if (!formData.location) errors.location = 'Выберите локацию';
     if (!formData.date) errors.date = 'Выберите дату';
 
-    // Проверяем, что есть хотя бы одна заполненная позиция в любой категории
-    const hasWriteoffs = formData.writeoffs.some(item => item.name && item.weight && item.unit && item.reason);
+    // Проверяем, что есть хотя бы одна заполненная позиция
+    const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.unit && item.reason);
     const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.unit && item.reason);
 
-    if (!hasWriteoffs && !hasTransfers) {
-      errors.items = 'Заполните хотя бы одну позицию списания или перемещения (все поля обязательны)';
+    if (!hasWriteOffs && !hasTransfers) {
+      errors.items = 'Заполните хотя бы одну позицию списания или перемещения (название + вес + единица + причина)';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -110,34 +103,34 @@ export const WriteOffForm = ({
       // Основные поля
       apiFormData.append('location', formData.location);
       apiFormData.append('report_date', formData.date);
-      apiFormData.append('date', new Date().toISOString());
+      apiFormData.append('date', formData.date);
 
-      // Списания
-      const writeoffItems = formData.writeoffs
+      // Списания - ИСПРАВЛЕНО: используем правильную структуру как в монолитной версии
+      const writeoffs = formData.writeOffs
         .filter(item => item.name && item.weight && item.unit && item.reason)
         .map(item => ({
           name: item.name,
+          unit: item.unit,  // отдельное поле,
           weight: parseFloat(item.weight),
-          unit: item.unit,
           reason: item.reason
         }));
 
-      if (writeoffItems.length > 0) {
-        apiFormData.append('writeoffs_json', JSON.stringify(writeoffItems));
+      if (writeoffs.length > 0) {
+        apiFormData.append('writeoffs_json', JSON.stringify(writeoffs));
       }
 
-      // Перемещения
-      const transferItems = formData.transfers
+      // Перемещения - ИСПРАВЛЕНО: используем правильную структуру как в монолитной версии
+      const transfers = formData.transfers
         .filter(item => item.name && item.weight && item.unit && item.reason)
         .map(item => ({
           name: item.name,
+          unit: item.unit,  // отдельное поле,
           weight: parseFloat(item.weight),
-          unit: item.unit,
           reason: item.reason
         }));
 
-      if (transferItems.length > 0) {
-        apiFormData.append('transfers_json', JSON.stringify(transferItems));
+      if (transfers.length > 0) {
+        apiFormData.append('transfers_json', JSON.stringify(transfers));
       }
 
       const result = await apiService.createWriteOffReport(apiFormData);
@@ -145,8 +138,8 @@ export const WriteOffForm = ({
       showNotification('success', 'Акт отправлен!', 'Акт списания/перемещения успешно отправлен и сохранен в системе');
 
     } catch (error) {
-      console.error('❌ Ошибка отправки акта:', error);
-      showNotification('error', 'Ошибка сервера', `Не удалось отправить акт: ${error.message}`);
+      console.error('❌ Ошибка отправки отчета:', error);
+      showNotification('error', 'Ошибка сервера', `Не удалось отправить отчет: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -198,10 +191,10 @@ export const WriteOffForm = ({
           </div>
         </div>
 
-        {/* Date */}
+        {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
         <div className="mb-6">
           <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
-          <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте вчерашнюю дату</p>
+          <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
 
           {/* Кнопки быстрого выбора */}
           <div className="flex gap-2 mb-3">
@@ -211,7 +204,7 @@ export const WriteOffForm = ({
               disabled={isLoading}
               className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
                 formData.date === getTodayDate()
-                  ? 'bg-red-500 border-red-500 text-white shadow-md'
+                  ? 'bg-purple-500 border-purple-500 text-white shadow-md'
                   : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
               }`}
             >
@@ -223,7 +216,7 @@ export const WriteOffForm = ({
               disabled={isLoading}
               className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
                 formData.date === getYesterdayDate()
-                  ? 'bg-red-500 border-red-500 text-white shadow-md'
+                  ? 'bg-purple-500 border-purple-500 text-white shadow-md'
                   : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
               }`}
             >
@@ -236,6 +229,7 @@ export const WriteOffForm = ({
             type="text"
             value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата не выбрана'}
             readOnly
+            id="date-field"
             className={`w-full p-3 border rounded-lg text-center transition-colors ${
               validationErrors.date 
                 ? 'border-red-400 bg-red-50 text-red-700' 
@@ -250,138 +244,119 @@ export const WriteOffForm = ({
           )}
         </div>
 
-        {/* Writeoffs Section */}
+        {/* Write-offs Section */}
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списание товаров</h3>
-          <p className="text-xs text-gray-600 mb-3">Товары, которые испортились и подлежат утилизации</p>
-          <div className="space-y-2">
-            {formData.writeoffs.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-2 p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Название товара"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('writeoffs', index, 'name', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`writeoff-name-${index}`}
-                  id={`writeoff-name-${index}`}
-                />
-                <div className="flex gap-1">
-                  <MemoizedInput
-                    type="text"
-                    placeholder="Вес"
-                    value={item.weight}
-                    onChange={(e) => handleNumberInput(e, (value) =>
-                      handleArrayChange('writeoffs', index, 'weight', value)
-                    )}
-                    disabled={isLoading}
-                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors text-sm flex-1"
-                    name={`writeoff-weight-${index}`}
-                    id={`writeoff-weight-${index}`}
-                  />
-                  <MemoizedInput
-                    type="text"
-                    placeholder="ед."
-                    value={item.unit}
-                    onChange={(e) => handleArrayChange('writeoffs', index, 'unit', e.target.value)}
-                    disabled={isLoading}
-                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors text-sm w-12"
-                    name={`writeoff-unit-${index}`}
-                    id={`writeoff-unit-${index}`}
-                  />
-                </div>
-                <MemoizedInput
-                  type="text"
-                  placeholder="Причина порчи"
-                  value={item.reason}
-                  onChange={(e) => handleArrayChange('writeoffs', index, 'reason', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors text-sm col-span-2"
-                  name={`writeoff-reason-${index}`}
-                  id={`writeoff-reason-${index}`}
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => addArrayItem('writeoffs')}
-            disabled={isLoading}
-            className="w-full p-2 mt-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-          >
-            <Plus size={16} />
-            Добавить списание
-          </button>
+          <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
+          <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
+          {formData.writeOffs.map((item, index) => (
+            <div key={index} className="grid grid-cols-4 gap-1 mb-2">
+              <MemoizedInput
+                type="text"
+                placeholder="Наименование"
+                value={item.name}
+                onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`writeoff-name-${index}`}
+                id={`writeoff-name-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="Количество"
+                value={item.weight}
+                onChange={(e) => handleNumberInput(e, (value) =>
+                  handleArrayChange('writeOffs', index, 'weight', value)
+                )}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`writeoff-weight-${index}`}
+                id={`writeoff-weight-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="кг/шт"
+                value={item.unit}
+                onChange={(e) => handleArrayChange('writeOffs', index, 'unit', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`writeoff-unit-${index}`}
+                id={`writeoff-unit-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="Причина"
+                value={item.reason}
+                onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`writeoff-reason-${index}`}
+                id={`writeoff-reason-${index}`}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Transfers Section */}
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-blue-600 mb-3">🔄 Перемещение товаров</h3>
-          <p className="text-xs text-gray-600 mb-3">Товары, которые переносятся на другие точки</p>
-          <div className="space-y-2">
-            {formData.transfers.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-2 p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Название товара"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`transfer-name-${index}`}
-                  id={`transfer-name-${index}`}
-                />
-                <div className="flex gap-1">
-                  <MemoizedInput
-                    type="text"
-                    placeholder="Вес"
-                    value={item.weight}
-                    onChange={(e) => handleNumberInput(e, (value) =>
-                      handleArrayChange('transfers', index, 'weight', value)
-                    )}
-                    disabled={isLoading}
-                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm flex-1"
-                    name={`transfer-weight-${index}`}
-                    id={`transfer-weight-${index}`}
-                  />
-                  <MemoizedInput
-                    type="text"
-                    placeholder="ед."
-                    value={item.unit}
-                    onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
-                    disabled={isLoading}
-                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm w-12"
-                    name={`transfer-unit-${index}`}
-                    id={`transfer-unit-${index}`}
-                  />
-                </div>
-                <MemoizedInput
-                  type="text"
-                  placeholder="Куда перемещается / причина"
-                  value={item.reason}
-                  onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm col-span-2"
-                  name={`transfer-reason-${index}`}
-                  id={`transfer-reason-${index}`}
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => addArrayItem('transfers')}
-            disabled={isLoading}
-            className="w-full p-2 mt-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-          >
-            <Plus size={16} />
-            Добавить перемещение
-          </button>
+          <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещения</h3>
+          <p className="text-sm text-gray-600 mb-3">Наименование - количество - кг/шт - причина и куда отправили</p>
+          {formData.transfers.map((item, index) => (
+            <div key={index} className="grid grid-cols-4 gap-1 mb-2">
+              <MemoizedInput
+                type="text"
+                placeholder="Наименование"
+                value={item.name}
+                onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`transfer-name-${index}`}
+                id={`transfer-name-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="Количество"
+                value={item.weight}
+                onChange={(e) => handleNumberInput(e, (value) =>
+                  handleArrayChange('transfers', index, 'weight', value)
+                )}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`transfer-weight-${index}`}
+                id={`transfer-weight-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="кг/шт"
+                value={item.unit}
+                onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`transfer-unit-${index}`}
+                id={`transfer-unit-${index}`}
+              />
+              <MemoizedInput
+                type="text"
+                placeholder="Причина и куда переместили"
+                value={item.reason}
+                onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
+                disabled={isLoading}
+                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                name={`transfer-reason-${index}`}
+                id={`transfer-reason-${index}`}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => {
+              if (currentDraftId) {
+                clearCurrentDraft();
+                setCurrentDraftId(null);
+              }
+              setValidationErrors({});
               window.location.reload();
             }}
             disabled={isLoading}
@@ -403,7 +378,7 @@ export const WriteOffForm = ({
             ) : (
               <>
                 <Send size={18} />
-                Отправить акт
+                Отправить отчёт
               </>
             )}
           </button>

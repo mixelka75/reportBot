@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import { MapPin, Clock, Edit3, Trash2 } from 'lucide-react';
 
-// Компонент карточки черновика
-export const DraftCard = React.memo(({ draft, setCurrentForm, setCurrentDraftId, deleteDraft }) => {
+// Компонент карточки черновика - ИСПРАВЛЕН согласно монолитной версии
+export const DraftCard = React.memo(({ draft, loadDraft, deleteDraft }) => {
   const formatDate = useCallback((dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('ru-RU', {
@@ -38,10 +38,10 @@ export const DraftCard = React.memo(({ draft, setCurrentForm, setCurrentDraftId,
     return icons[type] || '📄';
   }, []);
 
+  // ИСПРАВЛЕНО: логика как в монолитной версии - загружаем черновик правильно
   const handleContinue = useCallback(() => {
-    setCurrentDraftId(draft.id);
-    setCurrentForm(draft.type);
-  }, [draft.id, draft.type, setCurrentDraftId, setCurrentForm]);
+    loadDraft(draft.id);
+  }, [draft.id, loadDraft]);
 
   const handleDelete = useCallback(() => {
     deleteDraft(draft.id);

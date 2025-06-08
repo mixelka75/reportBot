@@ -1,13 +1,14 @@
 import React from 'react';
 import { DraftCard } from '../common/DraftCard';
 
-// Main Menu Component
+// Main Menu Component - ИСПРАВЛЕН согласно монолитной версии
 export const MainMenu = ({
   drafts,
   setCurrentForm,
   setCurrentDraftId,
   setValidationErrors,
-  deleteDraft
+  deleteDraft,
+  loadDraft // ДОБАВЛЕНО: loadDraft
 }) => {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -26,8 +27,7 @@ export const MainMenu = ({
                 <DraftCard
                   key={draft.id}
                   draft={draft}
-                  setCurrentForm={setCurrentForm}
-                  setCurrentDraftId={setCurrentDraftId}
+                  loadDraft={loadDraft}
                   deleteDraft={deleteDraft}
                 />
               ))}

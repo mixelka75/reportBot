@@ -8,25 +8,36 @@ import {
 } from './components/forms';
 import { NotificationScreen } from './components/common';
 import { apiService } from './services/apiService';
+import { LOCATIONS } from './constants';
 import './App.css';
 
-// Locations list
-const LOCATIONS = [
-  'ул. 8-я Нижняя Ак. №36',
-  'ул. 12-я Верхняя Ак. №12',
-  'ул. Ал. Матросова №139к3',
-  'ул. Гагарина №35',
-  'ул. Короленко №43',
-  'ул. Советская №7',
-  'ул. Октябрьская №10а',
-  'ул. Терешковой №6а',
-  'пр. Речицкий д.3а'
-];
+// Функция для конвертации File в base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Функция для конвертации base64 обратно в File
+const base64ToFile = (base64, filename) => {
+  const arr = base64.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
 
 // Draft storage functions
 const getDrafts = () => {
   try {
-    const drafts = localStorage.getItem('report-drafts');
+    const drafts = localStorage.getItem('reportDrafts');
     return drafts ? JSON.parse(drafts) : [];
   } catch (error) {
     console.error('Error loading drafts:', error);
@@ -36,13 +47,11 @@ const getDrafts = () => {
 
 const saveDrafts = (drafts) => {
   try {
-    localStorage.setItem('report-drafts', JSON.stringify(drafts));
+    localStorage.setItem('reportDrafts', JSON.stringify(drafts));
   } catch (error) {
     console.error('Error saving drafts:', error);
   }
 };
-
-const generateDraftId = () => `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 function App() {
   const [currentForm, setCurrentForm] = useState('menu');
@@ -57,48 +66,125 @@ function App() {
     setDrafts(getDrafts());
   }, []);
 
-  // Draft management functions
+  // Draft management functions с логикой base64 как в монолитной версии
   const saveDraft = useCallback(async (type, data) => {
     if (!data || typeof data !== 'object') return;
 
+    const draftId = currentDraftId || Date.now().toString();
+
     try {
-      const drafts = getDrafts();
-      const now = new Date().toISOString();
+      // Конвертируем фото в base64 если есть
+      const dataToSave = { ...data };
 
-      let draftToUpdate = drafts.find(d => d.id === currentDraftId);
-
-      if (draftToUpdate) {
-        // Update existing draft
-        draftToUpdate.data = data;
-        draftToUpdate.updatedAt = now;
-      } else {
-        // Create new draft
-        const newDraftId = generateDraftId();
-        setCurrentDraftId(newDraftId);
-
-        const newDraft = {
-          id: newDraftId,
-          type,
-          data,
-          createdAt: now,
-          updatedAt: now
-        };
-
-        drafts.push(newDraft);
+      // Обрабатываем одиночное фото (для отчета смены)
+      if (dataToSave.photo && dataToSave.photo instanceof File) {
+        try {
+          dataToSave.photoBase64 = await fileToBase64(dataToSave.photo);
+          dataToSave.photoName = dataToSave.photo.name;
+          delete dataToSave.photo;
+        } catch (error) {
+          console.warn('Не удалось сохранить фото в черновик:', error);
+          delete dataToSave.photo;
+        }
       }
 
-      saveDrafts(drafts);
-      setDrafts(drafts);
+      // Обрабатываем массив фотографий (для отчета приема товаров)
+      if (dataToSave.photos && Array.isArray(dataToSave.photos) && dataToSave.photos.length > 0) {
+        try {
+          dataToSave.photosBase64 = [];
+          for (const photo of dataToSave.photos) {
+            if (photo instanceof File) {
+              const base64 = await fileToBase64(photo);
+              dataToSave.photosBase64.push({
+                base64: base64,
+                name: photo.name,
+                type: photo.type,
+                size: photo.size
+              });
+            }
+          }
+          delete dataToSave.photos;
+        } catch (error) {
+          console.warn('Не удалось сохранить фотографии в черновик:', error);
+          delete dataToSave.photos;
+        }
+      }
+
+      const draft = {
+        id: draftId,
+        type: type,
+        data: dataToSave,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const existingDrafts = getDrafts();
+      const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
+
+      if (draftIndex !== -1) {
+        existingDrafts[draftIndex] = { ...existingDrafts[draftIndex], ...draft, updatedAt: new Date().toISOString() };
+      } else {
+        existingDrafts.push(draft);
+      }
+
+      saveDrafts(existingDrafts);
+      setDrafts(existingDrafts);
+
+      if (!currentDraftId) {
+        setCurrentDraftId(draftId);
+      }
     } catch (error) {
       console.error('Error saving draft:', error);
     }
   }, [currentDraftId]);
 
+  // Отдельная функция для загрузки черновика из MainMenu
+  const loadDraftFromMenu = useCallback((draftId) => {
+    const drafts = getDrafts();
+    const draft = drafts.find(d => d.id === draftId);
+    if (draft) {
+      setCurrentDraftId(draftId);
+      setCurrentForm(draft.type);
+    }
+  }, []);
+
   const loadDraft = useCallback((draftId) => {
     try {
       const drafts = getDrafts();
       const draft = drafts.find(d => d.id === draftId);
-      return draft ? draft.data : null;
+      if (draft) {
+        // Восстанавливаем данные
+        const draftData = { ...draft.data };
+
+        // Восстанавливаем одиночное фото из base64 (для отчета смены)
+        if (draftData.photoBase64 && draftData.photoName) {
+          try {
+            draftData.photo = base64ToFile(draftData.photoBase64, draftData.photoName);
+            delete draftData.photoBase64;
+            delete draftData.photoName;
+          } catch (error) {
+            console.warn('Не удалось восстановить фото из черновика:', error);
+          }
+        }
+
+        // Восстанавливаем массив фотографий из base64 (для отчета приема товаров)
+        if (draftData.photosBase64 && Array.isArray(draftData.photosBase64)) {
+          try {
+            draftData.photos = [];
+            for (const photoData of draftData.photosBase64) {
+              const file = base64ToFile(photoData.base64, photoData.name);
+              draftData.photos.push(file);
+            }
+            delete draftData.photosBase64;
+          } catch (error) {
+            console.warn('Не удалось восстановить фотографии из черновика:', error);
+            draftData.photos = [];
+          }
+        }
+
+        return draftData;
+      }
+      return null;
     } catch (error) {
       console.error('Error loading draft:', error);
       return null;
@@ -114,7 +200,6 @@ function App() {
 
       if (currentDraftId === draftId) {
         setCurrentDraftId(null);
-        setCurrentForm('menu');
       }
     } catch (error) {
       console.error('Error deleting draft:', error);
@@ -132,11 +217,15 @@ function App() {
     setCurrentForm('menu');
     setCurrentDraftId(null);
     setValidationErrors({});
+    setDrafts(getDrafts()); // Обновляем список черновиков
   }, []);
 
-  // Notification functions
+  // Notification functions - показываем только для успеха или критических ошибок
   const showNotification = useCallback((type, title, message) => {
-    setNotification({ type, title, message });
+    // Показываем NotificationScreen только для успеха или критических ошибок сервера
+    if (type === 'success' || message.includes('сервер') || message.includes('Сеть')) {
+      setNotification({ type, title, message });
+    }
   }, []);
 
   const clearNotification = useCallback(() => {
@@ -146,21 +235,11 @@ function App() {
 
   const showValidationErrors = useCallback((errors) => {
     setValidationErrors(errors);
-
-    // Scroll to first error field
+    // Прокручиваем к первой ошибке
     setTimeout(() => {
-      const firstErrorField = Object.keys(errors)[0];
-      const firstErrorElement = document.querySelector(`[name="${firstErrorField}"], [id="${firstErrorField}"]`);
-
-      if (firstErrorElement) {
-        firstErrorElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-        firstErrorElement.focus();
-      } else {
-        // Scroll to top if no specific field found
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      const firstErrorField = document.querySelector('.border-red-400');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
   }, []);
@@ -210,6 +289,7 @@ function App() {
           setCurrentDraftId={setCurrentDraftId}
           setValidationErrors={setValidationErrors}
           deleteDraft={deleteDraft}
+          loadDraft={loadDraftFromMenu}
         />
       );
   }
