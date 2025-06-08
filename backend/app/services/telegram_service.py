@@ -769,3 +769,54 @@ class TelegramService:
                 message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
 
         return message
+
+    async def send_photos_to_location(self, location: str, photos: List[Dict[str, Any]],
+                                      message: Optional[str] = None) -> bool:
+        """Отправляет фотографии в подгруппу по локации"""
+        if not self.enabled:
+            print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
+            return False
+
+        if not photos:
+            print("❌ Список фотографий пуст")
+            return False
+
+        if len(photos) > 10:
+            print("❌ Превышено максимальное количество фотографий (10)")
+            return False
+
+        try:
+            topic_id = self.get_topic_id_by_location(location)
+
+            # Если нет сообщения, создаем простое
+            if not message:
+                message = f"📸 <b>НЕДОСТАЮЩИЕ ФОТО</b>\n📍 <b>Локация:</b> {location}\n🕐 <b>Время:</b> {datetime.now(ZoneInfo('UTC')).astimezone(ZoneInfo('Europe/Moscow')).strftime('%d.%m.%Y %H:%M')}"
+
+            success = False
+
+            # Если одна фотография - отправляем как фото с подписью
+            if len(photos) == 1:
+                success = await self._send_photo_with_caption_from_bytes(
+                    message,
+                    photos[0]['content'],
+                    photos[0]['filename'],
+                    topic_id
+                )
+            else:
+                # Если несколько фотографий - отправляем как медиа-группу
+                success = await self._send_media_group_with_caption(
+                    message,
+                    photos,
+                    topic_id
+                )
+
+            if success:
+                print(f"✅ Фотографии отправлены в Telegram для локации: {location}")
+            else:
+                print(f"⚠️  Ошибка отправки фотографий в Telegram для локации: {location}")
+
+            return success
+
+        except Exception as e:
+            print(f"⚠️  Ошибка отправки фотографий в Telegram: {str(e)}")
+            return False
