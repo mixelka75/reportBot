@@ -44,6 +44,7 @@ export const CashierReportForm = ({
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
   const photoInputRef = useRef(null);
 
@@ -124,6 +125,15 @@ export const CashierReportForm = ({
     setValidationErrors({});
     window.location.reload();
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
+
+  // Функция удаления фото с подтверждением
+  const handleDeletePhoto = useCallback(() => {
+    setFormData(prev => ({ ...prev, photo: null }));
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+    setShowDeletePhotoModal(false);
+  }, []);
 
   // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ (ДОБАВЛЕНЫ НОВЫЕ ПОЛЯ)
   const calculateTotals = useMemo(() => {
@@ -648,12 +658,7 @@ export const CashierReportForm = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, photo: null }));
-                      if (photoInputRef.current) {
-                        photoInputRef.current.value = '';
-                      }
-                    }}
+                    onClick={() => setShowDeletePhotoModal(true)}
                     className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
                     disabled={isLoading}
                   >
@@ -749,6 +754,18 @@ export const CashierReportForm = ({
         confirmText="Очистить"
         cancelText="Отмена"
         type="warning"
+      />
+
+      {/* Модальное окно подтверждения удаления фото */}
+      <ConfirmationModal
+        isOpen={showDeletePhotoModal}
+        onClose={() => setShowDeletePhotoModal(false)}
+        onConfirm={handleDeletePhoto}
+        title="Удалить фотографию"
+        message="Вы уверены, что хотите удалить выбранную фотографию? Это действие нельзя отменить."
+        confirmText="Удалить"
+        cancelText="Отмена"
+        type="danger"
       />
     </>
   );

@@ -32,6 +32,8 @@ export const ReceivingForm = ({
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
+  const [photoToDelete, setPhotoToDelete] = useState(null);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
   const singlePhotoInputRef = useRef(null);
 
@@ -137,7 +139,22 @@ export const ReceivingForm = ({
       const newPhotos = prev.photos.filter((_, i) => i !== index);
       return { ...prev, photos: newPhotos };
     });
+    setShowDeletePhotoModal(false);
+    setPhotoToDelete(null);
   }, []);
+
+  // Функция для показа модального окна удаления фото
+  const handleDeletePhotoClick = useCallback((index) => {
+    setPhotoToDelete(index);
+    setShowDeletePhotoModal(true);
+  }, []);
+
+  // Функция подтверждения удаления фото
+  const handleConfirmDeletePhoto = useCallback(() => {
+    if (photoToDelete !== null) {
+      removePhoto(photoToDelete);
+    }
+  }, [photoToDelete, removePhoto]);
 
   // Функция очистки формы
   const handleClearForm = useCallback(() => {
@@ -419,7 +436,7 @@ export const ReceivingForm = ({
                         </div>
                         <button
                           type="button"
-                          onClick={() => removePhoto(index)}
+                          onClick={() => handleDeletePhotoClick(index)}
                           className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
                           disabled={isLoading}
                         >
@@ -647,6 +664,21 @@ export const ReceivingForm = ({
         confirmText="Очистить"
         cancelText="Отмена"
         type="warning"
+      />
+
+      {/* Модальное окно подтверждения удаления фото */}
+      <ConfirmationModal
+        isOpen={showDeletePhotoModal}
+        onClose={() => {
+          setShowDeletePhotoModal(false);
+          setPhotoToDelete(null);
+        }}
+        onConfirm={handleConfirmDeletePhoto}
+        title="Удалить фотографию"
+        message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.photos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
+        confirmText="Удалить"
+        cancelText="Отмена"
+        type="danger"
       />
     </>
   );
