@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Camera, MapPin, Clock, Calculator, Send, RefreshCw, Home, Plus, CheckCircle, XCircle } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
+import { ConfirmationModal } from '../common/ConfirmationModal';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useFormData } from '../../hooks/useFormData';
 import { getCurrentMSKTime } from '../../utils/dateUtils';
@@ -42,6 +43,7 @@ export const CashierReportForm = ({
     photo: null
   });
 
+  const [showClearModal, setShowClearModal] = useState(false);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
   const photoInputRef = useRef(null);
 
@@ -113,6 +115,15 @@ export const CashierReportForm = ({
       expenses: [...prev.expenses, { name: '', amount: '' }]
     }));
   }, []);
+
+  // Функция очистки формы
+  const handleClearForm = useCallback(() => {
+    if (currentDraftId) {
+      clearCurrentDraft();
+    }
+    setValidationErrors({});
+    window.location.reload();
+  }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
 
   // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ (ДОБАВЛЕНЫ НОВЫЕ ПОЛЯ)
   const calculateTotals = useMemo(() => {
@@ -221,512 +232,524 @@ export const CashierReportForm = ({
   }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
-      <div className="max-w-md mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={goToMenu}
-            className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-            disabled={isLoading}
-          >
-            <Home size={20} className="text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-green-600">💰 Кассовый отчет</h1>
-            {currentDraftId && (
-              <p className="text-sm text-green-600">✓ Автосохранение включено</p>
-            )}
+    <>
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
+        <div className="max-w-md mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={goToMenu}
+              className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              disabled={isLoading}
+            >
+              <Home size={20} className="text-gray-600" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-green-600">💰 Кассовый отчет</h1>
+              {currentDraftId && (
+                <p className="text-sm text-green-600">✓ Автосохранение включено</p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Ошибки валидации */}
-        <ValidationAlert errors={validationErrors} />
+          {/* Ошибки валидации */}
+          <ValidationAlert errors={validationErrors} />
 
-        {/* Location Selection */}
-        <div className="mb-4">
-          <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-            <MapPin size={16} className="text-red-500" />
-            Адрес локации *
-          </label>
-          <div className="space-y-2">
-            {locations.map(loc => (
-              <button
-                key={loc}
-                onClick={() => handleInputChange('location', loc)}
-                disabled={isLoading}
-                className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
-                  formData.location === loc 
-                    ? 'bg-red-500 border-red-500 text-white shadow-md' 
-                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
-                } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
-              >
-                • {loc}
-              </button>
+          {/* Location Selection */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
+              Адрес локации *
+            </label>
+            <div className="space-y-2">
+              {locations.map(loc => (
+                <button
+                  key={loc}
+                  onClick={() => handleInputChange('location', loc)}
+                  disabled={isLoading}
+                  className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
+                    formData.location === loc 
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
+                >
+                  • {loc}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Shift Selection */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <Clock size={16} className="text-yellow-500" />
+              Выбор смены *
+            </label>
+            <div className="flex gap-2">
+              {['Утро', 'Ночь'].map(shift => (
+                <button
+                  key={shift}
+                  onClick={() => handleInputChange('shift', shift)}
+                  disabled={isLoading}
+                  className={`flex-1 p-3 rounded-lg border transition-colors disabled:opacity-50 ${
+                    formData.shift === shift 
+                      ? 'bg-yellow-500 border-yellow-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
+                >
+                  {shift} / {shift === 'Утро' ? 'День' : 'Ночь'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date & Cashier */}
+          <div className="mb-4">
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
+            <input
+              type="text"
+              value={formData.date}
+              readOnly
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="text-sm font-medium block mb-2 text-gray-700">👤 Имя кассира *</label>
+            <MemoizedInput
+              type="text"
+              value={formData.cashierName}
+              onChange={(e) => handleInputChange('cashierName', e.target.value)}
+              disabled={isLoading}
+              className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+              placeholder="Введите имя кассира"
+              name="cashierName"
+              id="cashierName"
+              hasError={!!validationErrors.cashierName}
+            />
+          </div>
+
+          {/* Income Section */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
+            <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
+            {formData.incomes.map((income, index) => (
+              <div key={index} className="grid grid-cols-2 gap-2 mb-2">
+                <MemoizedInput
+                  type="text"
+                  placeholder="Сумма"
+                  value={income.amount}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('incomes', value, index, 'amount')
+                  )}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`income-amount-${index}`}
+                  id={`income-amount-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="Комментарий"
+                  value={income.comment}
+                  onChange={(e) => handleInputChange('incomes', e.target.value, index, 'comment')}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`income-comment-${index}`}
+                  id={`income-comment-${index}`}
+                />
+              </div>
             ))}
+            <button
+              onClick={addIncomeEntry}
+              disabled={isLoading}
+              className="w-full p-2 mb-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              добавить еще
+            </button>
+            <div className="text-right text-green-600 font-semibold bg-green-50 p-2 rounded-lg">
+              Итого приход: {calculateTotals.totalIncome.toLocaleString()} ₽
+            </div>
           </div>
-        </div>
 
-        {/* Shift Selection */}
-        <div className="mb-4">
-          <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-            <Clock size={16} className="text-yellow-500" />
-            Выбор смены *
-          </label>
-          <div className="flex gap-2">
-            {['Утро', 'Ночь'].map(shift => (
-              <button
-                key={shift}
-                onClick={() => handleInputChange('shift', shift)}
-                disabled={isLoading}
-                className={`flex-1 p-3 rounded-lg border transition-colors disabled:opacity-50 ${
-                  formData.shift === shift 
-                    ? 'bg-yellow-500 border-yellow-500 text-white shadow-md' 
-                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
-                } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
-              >
-                {shift} / {shift === 'Утро' ? 'День' : 'Ночь'}
-              </button>
+          {/* Expenses Section */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
+            <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
+            {formData.expenses.map((expense, index) => (
+              <div key={index} className="grid grid-cols-2 gap-2 mb-2">
+                <MemoizedInput
+                  type="text"
+                  placeholder="Сумма"
+                  value={expense.amount}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('expenses', value, index, 'amount')
+                  )}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`expense-amount-${index}`}
+                  id={`expense-amount-${index}`}
+                />
+                <MemoizedInput
+                  type="text"
+                  placeholder="Комментарий"
+                  value={expense.name}
+                  onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
+                  disabled={isLoading}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
+                  name={`expense-name-${index}`}
+                  id={`expense-name-${index}`}
+                />
+              </div>
             ))}
-          </div>
-        </div>
-
-        {/* Date & Cashier */}
-        <div className="mb-4">
-          <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
-          <input
-            type="text"
-            value={formData.date}
-            readOnly
-            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-          />
-        </div>
-
-        <div className="mb-6">
-          <label className="text-sm font-medium block mb-2 text-gray-700">👤 Имя кассира *</label>
-          <MemoizedInput
-            type="text"
-            value={formData.cashierName}
-            onChange={(e) => handleInputChange('cashierName', e.target.value)}
-            disabled={isLoading}
-            className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-            placeholder="Введите имя кассира"
-            name="cashierName"
-            id="cashierName"
-            hasError={!!validationErrors.cashierName}
-          />
-        </div>
-
-        {/* Income Section */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-green-600 mb-3">💰 Приход денег/внесения</h3>
-          <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
-          {formData.incomes.map((income, index) => (
-            <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-              <MemoizedInput
-                type="text"
-                placeholder="Сумма"
-                value={income.amount}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange('incomes', value, index, 'amount')
-                )}
-                disabled={isLoading}
-                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
-                name={`income-amount-${index}`}
-                id={`income-amount-${index}`}
-              />
-              <MemoizedInput
-                type="text"
-                placeholder="Комментарий"
-                value={income.comment}
-                onChange={(e) => handleInputChange('incomes', e.target.value, index, 'comment')}
-                disabled={isLoading}
-                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors"
-                name={`income-comment-${index}`}
-                id={`income-comment-${index}`}
-              />
-            </div>
-          ))}
-          <button
-            onClick={addIncomeEntry}
-            disabled={isLoading}
-            className="w-full p-2 mb-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-          >
-            <Plus size={16} />
-            добавить еще
-          </button>
-          <div className="text-right text-green-600 font-semibold bg-green-50 p-2 rounded-lg">
-            Итого приход: {calculateTotals.totalIncome.toLocaleString()} ₽
-          </div>
-        </div>
-
-        {/* Expenses Section */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
-          <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
-          {formData.expenses.map((expense, index) => (
-            <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-              <MemoizedInput
-                type="text"
-                placeholder="Сумма"
-                value={expense.amount}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange('expenses', value, index, 'amount')
-                )}
-                disabled={isLoading}
-                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
-                name={`expense-amount-${index}`}
-                id={`expense-amount-${index}`}
-              />
-              <MemoizedInput
-                type="text"
-                placeholder="Комментарий"
-                value={expense.name}
-                onChange={(e) => handleInputChange('expenses', e.target.value, index, 'name')}
-                disabled={isLoading}
-                className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50 transition-colors"
-                name={`expense-name-${index}`}
-                id={`expense-name-${index}`}
-              />
-            </div>
-          ))}
-          <button
-            onClick={addExpenseEntry}
-            disabled={isLoading}
-            className="w-full p-2 mb-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-          >
-            <Plus size={16} />
-            добавить еще
-          </button>
-          <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
-            Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
-          </div>
-        </div>
-
-        {/* iiko Information */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-blue-600 mb-3">📱 iiko информация</h3>
-          <div className="space-y-2">
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">Общая выручка: *</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Общая выручка"
-                value={formData.iikoData.totalRevenue}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.totalRevenue`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-totalRevenue"
-                id="iiko-totalRevenue"
-                hasError={validationErrors.totalRevenue}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">Возвраты:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Возвраты"
-                value={formData.iikoData.returns}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.returns`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-returns"
-                id="iiko-returns"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*Эквайринг:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Эквайринг"
-                value={formData.iikoData.acquiring}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.acquiring`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-acquiring"
-                id="iiko-acquiring"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*QR-код (запасной терминал QR):</label>
-              <MemoizedInput
-                type="text"
-                placeholder="QR-код"
-                value={formData.iikoData.qrCode}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.qrCode`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-qrCode"
-                id="iiko-qrCode"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*Онлайн приложение:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Онлайн приложение"
-                value={formData.iikoData.onlineApp}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.onlineApp`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-onlineApp"
-                id="iiko-onlineApp"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Яндекс.Еда"
-                value={formData.iikoData.yandexEda}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.yandexEda`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-yandexEda"
-                id="iiko-yandexEda"
-              />
-            </div>
-            {/* НОВЫЕ ПОЛЯ */}
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда - не пришел заказ в систему:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Яндекс.Еда - не пришел заказ в систему"
-                value={formData.iikoData.yandexEdaNoSystem}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.yandexEdaNoSystem`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-yandexEdaNoSystem"
-                id="iiko-yandexEdaNoSystem"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1 text-gray-700">*Primehill:</label>
-              <MemoizedInput
-                type="text"
-                placeholder="Primehill"
-                value={formData.iikoData.primehill}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange(`iikoData.primehill`, value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="iiko-primehill"
-                id="iiko-primehill"
-              />
+            <button
+              onClick={addExpenseEntry}
+              disabled={isLoading}
+              className="w-full p-2 mb-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              добавить еще
+            </button>
+            <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
+              Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
             </div>
           </div>
-        </div>
 
-        {/* ИТОГОВЫЙ ОТЧЁТ */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-purple-600 mb-3">📊 ИТОГОВЫЙ ОТЧЁТ</h3>
-          <div className="space-y-3">
-            {/* Факт наличные - ДОБАВЛЕНО ПОЛЕ ДЛЯ ВВОДА */}
-            <div>
-              <label className="text-sm font-medium block mb-2 text-gray-700">
-                Факт наличные: (указать фактическую сумму наличных) *
-              </label>
-              <MemoizedInput
-                type="text"
-                placeholder="Введите фактическую сумму наличных"
-                value={formData.factCash}
-                onChange={(e) => handleNumberInput(e, (value) =>
-                  handleInputChange('factCash', value)
-                )}
-                disabled={isLoading}
-                className="w-full p-3 bg-white border rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                name="factCash"
-                id="factCash"
-                hasError={!!validationErrors.factCash}
-              />
-            </div>
-
-            <div className="bg-purple-50 p-3 rounded-lg">
-              <div className="text-sm text-purple-700 space-y-1">
-                <div className="flex justify-between">
-                  <span>Итого эквайринг:</span>
-                  <span className="font-semibold">{calculateTotals.totalAcquiring.toLocaleString()} ₽</span>
-                </div>
-                <div className="text-xs text-purple-600">
-                  (авто подсчёт всех пунктов которые отмечены "*")
-                </div>
+          {/* iiko Information */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">📱 iiko информация</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">Общая выручка: *</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Общая выручка"
+                  value={formData.iikoData.totalRevenue}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.totalRevenue`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-totalRevenue"
+                  id="iiko-totalRevenue"
+                  hasError={validationErrors.totalRevenue}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">Возвраты:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Возвраты"
+                  value={formData.iikoData.returns}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.returns`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-returns"
+                  id="iiko-returns"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Эквайринг:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Эквайринг"
+                  value={formData.iikoData.acquiring}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.acquiring`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-acquiring"
+                  id="iiko-acquiring"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*QR-код (запасной терминал QR):</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="QR-код"
+                  value={formData.iikoData.qrCode}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.qrCode`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-qrCode"
+                  id="iiko-qrCode"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Онлайн приложение:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Онлайн приложение"
+                  value={formData.iikoData.onlineApp}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.onlineApp`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-onlineApp"
+                  id="iiko-onlineApp"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Яндекс.Еда"
+                  value={formData.iikoData.yandexEda}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.yandexEda`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-yandexEda"
+                  id="iiko-yandexEda"
+                />
+              </div>
+              {/* НОВЫЕ ПОЛЯ */}
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда - не пришел заказ в систему:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Яндекс.Еда - не пришел заказ в систему"
+                  value={formData.iikoData.yandexEdaNoSystem}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.yandexEdaNoSystem`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-yandexEdaNoSystem"
+                  id="iiko-yandexEdaNoSystem"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Primehill:</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Primehill"
+                  value={formData.iikoData.primehill}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.primehill`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-primehill"
+                  id="iiko-primehill"
+                />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Photo Upload */}
-        <div className="mb-6">
-          <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
-            <Camera size={16} className="text-purple-500" />
-            Фотография кассового отчёта с iiko*
-          </label>
-
-          {/* Скрытый input для фото */}
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => {
-              setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
-              if (validationErrors.photo) {
-                setValidationErrors(prev => {
-                  const newErrors = { ...prev };
-                  delete newErrors.photo;
-                  return newErrors;
-                });
-              }
-            }}
-            disabled={isLoading}
-            className="hidden"
-            name="photo"
-            id="photo"
-          />
-
-          {/* Универсальная кнопка загрузки фото */}
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            disabled={isLoading}
-            className={`w-full photo-upload-button ${
-              validationErrors.photo 
-                ? 'border-red-400 bg-red-50 hover:bg-red-100' 
-                : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-3">
-              <Camera size={24} className="text-purple-600" />
-              <div className="text-center">
-                <div className="font-semibold text-purple-700 text-lg">Добавить фото отчёта</div>
+          {/* ИТОГОВЫЙ ОТЧЁТ */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-purple-600 mb-3">📊 ИТОГОВЫЙ ОТЧЁТ</h3>
+            <div className="space-y-3">
+              {/* Факт наличные - ДОБАВЛЕНО ПОЛЕ ДЛЯ ВВОДА */}
+              <div>
+                <label className="text-sm font-medium block mb-2 text-gray-700">
+                  Факт наличные: (указать фактическую сумму наличных) *
+                </label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Введите фактическую сумму наличных"
+                  value={formData.factCash}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange('factCash', value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-purple-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="factCash"
+                  id="factCash"
+                  hasError={!!validationErrors.factCash}
+                />
               </div>
-            </div>
-          </button>
 
-          {/* Показываем выбранный файл */}
-          {formData.photo && (
-            <div className="photo-selected bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-700 mb-1">
-                    ✅ Фото успешно выбрано
-                  </p>
-                  <p className="text-sm text-green-600 truncate mb-2">
-                    📄 {formData.photo.name}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-green-600">
-                    <span>📏 {(formData.photo.size / 1024 / 1024).toFixed(2)} МБ</span>
-                    <span>🖼️ {formData.photo.type}</span>
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="text-sm text-purple-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Итого эквайринг:</span>
+                    <span className="font-semibold">{calculateTotals.totalAcquiring.toLocaleString()} ₽</span>
+                  </div>
+                  <div className="text-xs text-purple-600">
+                    (авто подсчёт всех пунктов которые отмечены "*")
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, photo: null }));
-                    if (photoInputRef.current) {
-                      photoInputRef.current.value = '';
-                    }
-                  }}
-                  className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                  disabled={isLoading}
-                >
-                  <XCircle size={16} />
-                </button>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Подсказка если фото не выбрано */}
-          {!formData.photo && (
-            <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
-              validationErrors.photo 
-                ? 'border-red-300 bg-red-50 text-red-600' 
-                : 'border-gray-300 bg-gray-50 text-gray-500'
-            }`}>
-              <Camera size={32} className="mx-auto mb-3 opacity-50" />
-              <p className="text-sm font-medium mb-1">
-                {validationErrors.photo
-                  ? '❌ Необходимо добавить фотографию отчёта'
-                  : '📸 Нажмите кнопку выше'}
-              </p>
-              <p className="text-xs text-gray-400">
-                *возможно добавить только фотографию с галереи
-              </p>
-            </div>
-          )}
-        </div>
+          {/* Photo Upload */}
+          <div className="mb-6">
+            <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
+              <Camera size={16} className="text-purple-500" />
+              Фотография кассового отчёта с iiko*
+            </label>
 
-        {/* Calculation Results - ИСПРАВЛЕННАЯ ФОРМУЛА */}
-        <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-600 mb-3">
-            <Calculator size={20} />
-            Подсчет излишки/недостачи
-          </h3>
-          <div className="space-y-2 text-sm">
-            <div className="text-xs text-gray-600 mb-2">
-            </div>
-            <div className="flex justify-between text-gray-700">
-              <span>Расчетная сумма:</span>
-              <span className="font-semibold">{calculateTotals.calculatedAmount.toLocaleString()} ₽</span>
-            </div>
-            <div className="flex justify-between text-gray-700">
-              <span>Факт наличные:</span>
-              <span className="font-semibold">{calculateTotals.factCash.toLocaleString()} ₽</span>
-            </div>
-            <hr className="border-gray-300" />
-            <div className={`flex justify-between font-bold ${calculateTotals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              <span>{calculateTotals.difference >= 0 ? '✅ Излишек:' : '❌ Недостача:'}</span>
-              <span>{Math.abs(calculateTotals.difference).toLocaleString()} ₽</span>
+            {/* Скрытый input для фото */}
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
+                if (validationErrors.photo) {
+                  setValidationErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.photo;
+                    return newErrors;
+                  });
+                }
+              }}
+              disabled={isLoading}
+              className="hidden"
+              name="photo"
+              id="photo"
+            />
+
+            {/* Универсальная кнопка загрузки фото */}
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={isLoading}
+              className={`w-full photo-upload-button ${
+                validationErrors.photo 
+                  ? 'border-red-400 bg-red-50 hover:bg-red-100' 
+                  : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-3">
+                <Camera size={24} className="text-purple-600" />
+                <div className="text-center">
+                  <div className="font-semibold text-purple-700 text-lg">Добавить фото отчёта</div>
+                </div>
+              </div>
+            </button>
+
+            {/* Показываем выбранный файл */}
+            {formData.photo && (
+              <div className="photo-selected bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-green-700 mb-1">
+                      ✅ Фото успешно выбрано
+                    </p>
+                    <p className="text-sm text-green-600 truncate mb-2">
+                      📄 {formData.photo.name}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-green-600">
+                      <span>📏 {(formData.photo.size / 1024 / 1024).toFixed(2)} МБ</span>
+                      <span>🖼️ {formData.photo.type}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, photo: null }));
+                      if (photoInputRef.current) {
+                        photoInputRef.current.value = '';
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                    disabled={isLoading}
+                  >
+                    <XCircle size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Подсказка если фото не выбрано */}
+            {!formData.photo && (
+              <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
+                validationErrors.photo 
+                  ? 'border-red-300 bg-red-50 text-red-600' 
+                  : 'border-gray-300 bg-gray-50 text-gray-500'
+              }`}>
+                <Camera size={32} className="mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium mb-1">
+                  {validationErrors.photo
+                    ? '❌ Необходимо добавить фотографию отчёта'
+                    : '📸 Нажмите кнопку выше'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  *возможно добавить только фотографию с галереи
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Calculation Results - ИСПРАВЛЕННАЯ ФОРМУЛА */}
+          <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-yellow-600 mb-3">
+              <Calculator size={20} />
+              Подсчет излишки/недостачи
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="text-xs text-gray-600 mb-2">
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Расчетная сумма:</span>
+                <span className="font-semibold">{calculateTotals.calculatedAmount.toLocaleString()} ₽</span>
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Факт наличные:</span>
+                <span className="font-semibold">{calculateTotals.factCash.toLocaleString()} ₽</span>
+              </div>
+              <hr className="border-gray-300" />
+              <div className={`flex justify-between font-bold ${calculateTotals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{calculateTotals.difference >= 0 ? '✅ Излишек:' : '❌ Недостача:'}</span>
+                <span>{Math.abs(calculateTotals.difference).toLocaleString()} ₽</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 mb-6">
-          <button
-            onClick={() => {
-              window.location.reload();
-            }}
-            disabled={isLoading}
-            className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
-          >
-            <RefreshCw size={18} />
-            Очистить
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="flex-1 flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
-          >
-            {isLoading ? (
-              <>
-                <RefreshCw size={18} className="animate-spin" />
-                Отправка...
-              </>
-            ) : (
-              <>
-                <Send size={18} />
-                Отправить отчёт
-              </>
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => setShowClearModal(true)}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
+            >
+              <RefreshCw size={18} />
+              Очистить
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  Отправка...
+                </>
+              ) : (
+                <>
+                  <Send size={18} />
+                  Отправить отчёт
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Модальное окно подтверждения очистки */}
+      <ConfirmationModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearForm}
+        title="Очистить форму"
+        message="Вы уверены, что хотите очистить форму? Все несохраненные данные будут потеряны."
+        confirmText="Очистить"
+        cancelText="Отмена"
+        type="warning"
+      />
+    </>
   );
 };
