@@ -306,3 +306,54 @@ async def create_report_on_goods(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Ошибка при создании отчета приема товаров: {str(e)}',
         )
+
+
+@router.post(
+    '/send-photo',
+    status_code=status.HTTP_201_CREATED,
+    description="ОТПРАВКА НЕ ДОСТАЮЩИХ ФОТО В ОТЧЕТ ПРИЕМА ТОВАРА",
+    responses={201: {"Успешно отправлено": "статус - 201"},
+               401: {"Плохой запрос": "статус 400 что то пошло не так"}}
+
+)
+async def send_photo(
+        location: str = Form(
+            ...,
+            description="Название локации",
+            example="Кафе Центральный",
+            min_length=1,
+            max_length=255
+        ),
+
+        photos: List[UploadFile] = File(None),
+):
+    try:
+        photos_data = []
+        for photo in photos:
+            # Проверяем тип файла
+            if not photo.content_type or not photo.content_type.startswith('image/'):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Файл {photo.filename} не является изображением"
+                )
+
+            content = await photo.read()
+
+            # Проверяем размер файла (максимум 20MB)
+            if len(content) > 20 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Файл {photo.filename} слишком большой (максимум 20MB)"
+                )
+
+            photos_data.append({
+                "filename": photo.filename,
+                "content": content,
+                "content_type": photo.content_type
+            })
+
+        return await repg.send_photo(location, photos_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=str(e))

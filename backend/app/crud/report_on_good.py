@@ -1,5 +1,6 @@
 from typing import Dict, List, Any
 
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ReportOnGoodsCreate
 from app.models import ReportOnGoods
@@ -68,3 +69,9 @@ class ReportOnGoodCRUD:
             print(f"Ошибка отправки отчета товаров в Telegram: {str(e)}")
 
         return db_report
+
+    async def send_photo(self, location: str, photos: List[Dict[str, Any]]):
+        try:
+            return await self.telegram_service.send_photos_to_location(location=location, photos=photos)
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=str(e))
