@@ -78,7 +78,7 @@ async def create_shift_report(
         expense_entries = _parse_expense_entries(expense_entries_json)
 
         # Проверяем лимиты
-        _validate_entries_limits(income_entries, expense_entries)
+        # _validate_entries_limits(income_entries, expense_entries)
 
         # Создаем объект данных
         report_data = ShiftReportCreate(
@@ -222,25 +222,17 @@ def _parse_expense_entries(expense_entries_json: Optional[str]) -> List[ExpenseE
     return expense_entries
 
 
-def _validate_entries_limits(income_entries: List[IncomeEntry], expense_entries: List[ExpenseEntry]):
-    """Проверяет лимиты на количество записей."""
-    if len(income_entries) > 5:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Максимум 5 записей приходов"
-        )
+# def _validate_entries_limits(income_entries: List[IncomeEntry], expense_entries: List[ExpenseEntry]):
+#     """Проверяет лимиты на количество записей."""
+#     if len(income_entries) > 30:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Максимум 30 записей приходов"
+#         )
+#
+#     if len(expense_entries) > 30:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Максимум 30 записей расходов"
+#         )
 
-    if len(expense_entries) > 10:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Максимум 10 записей расходов"
-        )
-
-
-@router.post("/{report_id}/send", response_model=dict)
-async def send_shift_report(
-        report_id: int,
-        db: AsyncSession = Depends(get_db)
-):
-    """Повторная отправка отчета в Telegram."""
-    return {"message": "Функция в разработке", "report_id": report_id}

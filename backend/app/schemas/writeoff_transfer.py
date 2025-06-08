@@ -49,18 +49,15 @@ class WriteoffTransferCreate(BaseModel):
     report_date: date = Field(
         ...,
         description="Дата отчёта",
-        example="2025-05-24"
     )
 
     writeoffs: List[WriteoffEntry] = Field(
         default_factory=list,
-        max_items=10,
         description="Список списаний (максимум 10)"
     )
 
     transfers: List[TransferEntry] = Field(
         default_factory=list,
-        max_items=10,
         description="Список перемещений (максимум 10)"
     )
 
