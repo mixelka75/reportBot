@@ -59,5 +59,34 @@ export const apiService = {
     }
 
     return await response.json();
+  },
+
+  // НОВОЕ: метод для отправки дополнительных фотографий
+  async sendAdditionalPhotos(location, photos) {
+    console.log('🚀 Отправляем дополнительные фотографии...');
+
+    if (!photos || photos.length === 0) {
+      throw new Error('Нет фотографий для отправки');
+    }
+
+    const formData = new FormData();
+    formData.append('location', location);
+
+    // Добавляем все фотографии
+    photos.forEach((photo, index) => {
+      formData.append('photos', photo);
+    });
+
+    const response = await fetch(`${API_BASE_URL}/report-on-goods/send-photo`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Ошибка сервера ${response.status}: ${errorData}`);
+    }
+
+    return await response.json();
   }
 };
