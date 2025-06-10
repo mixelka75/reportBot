@@ -138,7 +138,7 @@ class ShiftReportCreate(BaseModel):
         example=5100.50
     )
 
-    comments: str = Field(default=None)
+    comments: Optional[str] = Field(default=None)
 
     class Config:
         json_schema_extra = {
@@ -209,7 +209,7 @@ class ShiftReportResponse(BaseModel):
     status: str = Field(description="Статус отчета")
     created_at: datetime = Field(description="Время создания")
 
-    comments: str = Field(default=None, description="Комментарии к отчету")
+    comments: Optional[str] = Field(default=None, description="Комментарии к отчету")
 
     class Config:
         from_attributes = True

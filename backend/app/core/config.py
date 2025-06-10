@@ -18,9 +18,13 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str = ""
 
     # ID тем (подгрупп) в Telegram чате
-    GAGARINA_48_TOPIC_ID: int = 0
-    ABDULHAMID_51_TOPIC_ID: int = 0
-    GAIDAR_7B_TOPIC_ID: int = 0
+    KASSA_GAGARINA_48_TOPIC_ID: int = 0
+    KASSA_ABDULHAMID_51_TOPIC_ID: int = 0
+    KASSA_GAIDAR_7B_TOPIC_ID: int = 0
+
+    OTCHET_GAGARINA_48_TOPIC_ID: int = 0
+    OTCHET_ABDULHAMID_51_TOPIC_ID: int = 0
+    OTCHET_GAIDAR_7B_TOPIC_ID: int = 0
 
     # URL мини-приложения
     MINI_APP_URL: str = "https://your-domain.com/mini-app"

@@ -33,9 +33,13 @@ class TelegramService:
         """Получает ID темы по локации"""
         # Маппинг локаций на темы
         location_topics = {
-            "Гагарина 48/1": settings.GAGARINA_48_TOPIC_ID,
-            "Абдулхакима Исмаилова 51": settings.ABDULHAMID_51_TOPIC_ID,
-            "Гайдара Гаджиева 7Б": settings.GAIDAR_7B_TOPIC_ID,
+            "Касса - Гагарина 48/1": settings.KASSA_GAGARINA_48_TOPIC_ID,
+            "Касса - Абдулхакима Исмаилова 51": settings.KASSA_ABDULHAMID_51_TOPIC_ID,
+            "Касса - Гайдара Гаджиева 7Б": settings.KASSA_GAIDAR_7B_TOPIC_ID,
+
+            "Отчет - Гагарина 48/1": settings.OTCHET_GAGARINA_48_TOPIC_ID,
+            "Отчет - Абдулхакима Исмаилова 51": settings.OTCHET_ABDULHAMID_51_TOPIC_ID,
+            "Отчет - Гайдара Гаджиева 7Б": settings.OTCHET_GAIDAR_7B_TOPIC_ID,
         }
 
         # Пробуем найти точное совпадение

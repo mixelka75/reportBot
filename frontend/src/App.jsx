@@ -8,7 +8,7 @@ import {
 } from './components/forms';
 import { NotificationScreen } from './components/common';
 import { apiService } from './services/apiService';
-import { LOCATIONS } from './constants';
+import { LOCATIONS, CASHIER_LOCATIONS, REPORT_LOCATIONS } from './constants';
 import './App.css';
 
 // Функция для конвертации File в base64
@@ -293,6 +293,8 @@ function App() {
     saveDraft,
     goToMenu,
     locations: LOCATIONS,
+    cashierLocations: CASHIER_LOCATIONS, // добавляем новое
+    reportLocations: REPORT_LOCATIONS, // добавляем новое
     apiService
   };
 
@@ -309,13 +311,13 @@ function App() {
   // Render appropriate form
   switch (currentForm) {
     case 'cashier':
-      return <CashierReportForm {...formProps} />;
+      return <CashierReportForm {...formProps} locations={formProps.cashierLocations}/>;
     case 'inventory':
-      return <InventoryForm {...formProps} />;
+      return <InventoryForm {...formProps} locations={formProps.reportLocations}/>;
     case 'receiving':
-      return <ReceivingForm {...formProps} />;
+      return <ReceivingForm {...formProps} locations={formProps.reportLocations}/>;
     case 'writeoff':
-      return <WriteOffForm {...formProps} />;
+      return <WriteOffForm {...formProps} locations={formProps.reportLocations}/>;
     default:
       return (
         <MainMenu
