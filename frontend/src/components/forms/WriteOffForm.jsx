@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Send, RefreshCw, Home } from 'lucide-react';
+import { MapPin, Send, RefreshCw, Home, Plus } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
@@ -25,8 +25,8 @@ export const WriteOffForm = ({
   const [formData, setFormData] = useState({
     location: '',
     date: '', // ИСПРАВЛЕНО: выбор даты
-    writeOffs: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }), // ИСПРАВЛЕНО: 10 элементов
-    transfers: Array(10).fill({ name: '', weight: '', unit: '', reason: '' }) // ИСПРАВЛЕНО: 10 элементов
+    writeOffs: Array(4).fill({ name: '', weight: '', unit: '', reason: '' }), // ИСПРАВЛЕНО: 10 элементов
+    transfers: Array(4).fill({ name: '', weight: '', unit: '', reason: '' }) // ИСПРАВЛЕНО: 10 элементов
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
@@ -74,6 +74,13 @@ export const WriteOffForm = ({
       newArray[index] = { ...newArray[index], [field]: value };
       return { ...prev, [arrayName]: newArray };
     });
+  }, []);
+
+  const addArrayItem = useCallback((arrayName) => {
+  setFormData(prev => ({
+    ...prev,
+    [arrayName]: [...prev[arrayName], { name: '', weight: '', unit: '', reason: '' }]
+  }));
   }, []);
 
   // Функция очистки формы
@@ -259,7 +266,7 @@ export const WriteOffForm = ({
           {/* Write-offs Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
-            <p className="text-sm text-gray-600 mb-3">10 пунктов<br />Наименование - количество - кг/шт - причина</p>
+            <p className="text-sm text-gray-600 mb-3">4 пункта<br />Наименование - количество - кг/шт - причина</p>
             {formData.writeOffs.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
@@ -306,6 +313,14 @@ export const WriteOffForm = ({
                 />
               </div>
             ))}
+            <button
+              onClick={() => addArrayItem('writeOffs')}
+              disabled={isLoading}
+              className="w-full p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              добавить еще
+            </button>
           </div>
 
           {/* Transfers Section */}
@@ -358,6 +373,14 @@ export const WriteOffForm = ({
                 />
               </div>
             ))}
+            <button
+              onClick={() => addArrayItem('transfers')}
+              disabled={isLoading}
+              className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+            >
+              <Plus size={16} />
+              добавить еще
+            </button>
           </div>
 
           {/* Action Buttons */}

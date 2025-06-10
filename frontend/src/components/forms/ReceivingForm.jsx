@@ -49,8 +49,12 @@ export const ReceivingForm = ({
       const draftData = loadDraft(currentDraftId);
       if (draftData) {
         setFormData(draftData);
-        // Дополнительные фото не сохраняются в черновик
-        setAdditionalPhotos([]);
+        // Восстанавливаем дополнительные фото из черновика
+        if (draftData.additionalPhotos && Array.isArray(draftData.additionalPhotos)) {
+          setAdditionalPhotos(draftData.additionalPhotos);
+        } else {
+          setAdditionalPhotos([]);
+        }
       }
     }
   }, [currentDraftId, loadDraft]);
@@ -61,10 +65,13 @@ export const ReceivingForm = ({
     const hasBarItems = data.bar.some(item => item.name || item.quantity || item.unit);
     const hasPackagingItems = data.packaging.some(item => item.name || item.quantity || item.unit);
 
-    if (data.location || data.photos.length > 0 || hasKitchenItems || hasBarItems || hasPackagingItems) {
-      await saveDraft('receiving', data);
+    if (data.location || data.photos.length > 0 || additionalPhotos.length > 0 ||
+        hasKitchenItems || hasBarItems || hasPackagingItems) {
+      // Добавляем additionalPhotos к данным для сохранения
+      const dataWithAdditionalPhotos = { ...data, additionalPhotos };
+      await saveDraft('receiving', dataWithAdditionalPhotos);
     }
-  }, [saveDraft]);
+  }, [saveDraft, additionalPhotos]);
 
   // Автосохранение каждые 300мс с сохранением фокуса
   useAutoSave(formData, autoSaveFunction, 300);
@@ -330,7 +337,6 @@ export const ReceivingForm = ({
       }
 
       const result = await apiService.createReceivingReport(apiFormData);
-      clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
 
       // НОВОЕ: автоматически отправляем дополнительные фото если они есть
       if (additionalPhotos.length > 0) {
@@ -348,6 +354,8 @@ export const ReceivingForm = ({
       } else {
         showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
       }
+      clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
+
 
     } catch (error) {
       console.error('❌ Ошибка отправки отчета:', error);

@@ -110,6 +110,27 @@ function App() {
         }
       }
 
+      // Обрабатываем дополнительные фотографии (для отчета приема товаров)
+      if (dataToSave.additionalPhotos && Array.isArray(dataToSave.additionalPhotos) && dataToSave.additionalPhotos.length > 0) {
+        try {
+          dataToSave.additionalPhotosBase64 = [];
+          for (const photo of dataToSave.additionalPhotos) {
+            if (photo instanceof File) {
+              const base64 = await fileToBase64(photo);
+              dataToSave.additionalPhotosBase64.push({
+                base64: base64,
+                name: photo.name,
+                type: photo.type,
+              });
+            }
+          }
+          delete dataToSave.additionalPhotos;
+        } catch (error) {
+          console.warn('Не удалось сохранить дополнительные фотографии в черновик:', error);
+          delete dataToSave.additionalPhotos;
+        }
+      }
+
       const draft = {
         id: draftId,
         type: type,
@@ -179,6 +200,20 @@ function App() {
           } catch (error) {
             console.warn('Не удалось восстановить фотографии из черновика:', error);
             draftData.photos = [];
+          }
+        }
+        // Восстанавливаем дополнительные фотографии из base64 (для отчета приема товаров)
+        if (draftData.additionalPhotosBase64 && Array.isArray(draftData.additionalPhotosBase64)) {
+          try {
+            draftData.additionalPhotos = [];
+            for (const photoData of draftData.additionalPhotosBase64) {
+              const file = base64ToFile(photoData.base64, photoData.name);
+              draftData.additionalPhotos.push(file);
+            }
+            delete draftData.additionalPhotosBase64;
+          } catch (error) {
+            console.warn('Не удалось восстановить дополнительные фотографии из черновика:', error);
+            draftData.additionalPhotos = [];
           }
         }
 
