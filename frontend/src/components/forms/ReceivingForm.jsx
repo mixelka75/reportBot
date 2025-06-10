@@ -31,11 +31,17 @@ export const ReceivingForm = ({
     packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
   });
 
+  // НОВОЕ: состояние для дополнительных фото
+  const [additionalPhotos, setAdditionalPhotos] = useState([]);
+
   const [showClearModal, setShowClearModal] = useState(false);
   const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
+  const [showDeleteAdditionalPhotoModal, setShowDeleteAdditionalPhotoModal] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState(null);
+  const [additionalPhotoToDelete, setAdditionalPhotoToDelete] = useState(null);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
   const singlePhotoInputRef = useRef(null);
+  const additionalPhotoInputRef = useRef(null); // НОВОЕ: ref для дополнительных фото
 
   // Загружаем черновик при инициализации
   useEffect(() => {
@@ -43,6 +49,8 @@ export const ReceivingForm = ({
       const draftData = loadDraft(currentDraftId);
       if (draftData) {
         setFormData(draftData);
+        // Дополнительные фото не сохраняются в черновик
+        setAdditionalPhotos([]);
       }
     }
   }, [currentDraftId, loadDraft]);
@@ -134,6 +142,39 @@ export const ReceivingForm = ({
     }
   }, [validationErrors, setValidationErrors]);
 
+  // НОВОЕ: функция для добавления дополнительных фото
+  const addAdditionalPhotos = useCallback((files) => {
+    const fileArray = Array.isArray(files) ? files : Array.from(files || []);
+
+    const validFiles = fileArray.filter(file => {
+      const validTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+        'image/bmp', 'image/webp', 'image/heic', 'image/heif'
+      ];
+      const maxSize = 50 * 1024 * 1024;
+
+      const fileName = file.name.toLowerCase();
+      const hasValidExtension = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif']
+        .some(ext => fileName.endsWith(ext));
+
+      return (validTypes.includes(file.type) || hasValidExtension) && file.size <= maxSize;
+    });
+
+    if (validFiles.length !== fileArray.length) {
+      alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
+    }
+
+    setAdditionalPhotos(prev => {
+      const newPhotos = [...prev, ...validFiles].slice(0, 10);
+      return newPhotos;
+    });
+
+    // Очищаем input после загрузки
+    if (additionalPhotoInputRef.current) {
+      additionalPhotoInputRef.current.value = '';
+    }
+  }, []);
+
   const removePhoto = useCallback((index) => {
     setFormData(prev => {
       const newPhotos = prev.photos.filter((_, i) => i !== index);
@@ -143,10 +184,23 @@ export const ReceivingForm = ({
     setPhotoToDelete(null);
   }, []);
 
+  // НОВОЕ: функция для удаления дополнительных фото
+  const removeAdditionalPhoto = useCallback((index) => {
+    setAdditionalPhotos(prev => prev.filter((_, i) => i !== index));
+    setShowDeleteAdditionalPhotoModal(false);
+    setAdditionalPhotoToDelete(null);
+  }, []);
+
   // Функция для показа модального окна удаления фото
   const handleDeletePhotoClick = useCallback((index) => {
     setPhotoToDelete(index);
     setShowDeletePhotoModal(true);
+  }, []);
+
+  // НОВОЕ: функция для показа модального окна удаления дополнительного фото
+  const handleDeleteAdditionalPhotoClick = useCallback((index) => {
+    setAdditionalPhotoToDelete(index);
+    setShowDeleteAdditionalPhotoModal(true);
   }, []);
 
   // Функция подтверждения удаления фото
@@ -156,18 +210,49 @@ export const ReceivingForm = ({
     }
   }, [photoToDelete, removePhoto]);
 
+  // НОВОЕ: функция подтверждения удаления дополнительного фото
+  const handleConfirmDeleteAdditionalPhoto = useCallback(() => {
+    if (additionalPhotoToDelete !== null) {
+      removeAdditionalPhoto(additionalPhotoToDelete);
+    }
+  }, [additionalPhotoToDelete, removeAdditionalPhoto]);
+
   // Функция очистки формы
   const handleClearForm = useCallback(() => {
     if (currentDraftId) {
       clearCurrentDraft();
     }
     setValidationErrors({});
+    setAdditionalPhotos([]); // НОВОЕ: очистка дополнительных фото
     // Очищаем input для фотографий
     if (singlePhotoInputRef.current) {
       singlePhotoInputRef.current.value = '';
     }
+    if (additionalPhotoInputRef.current) {
+      additionalPhotoInputRef.current.value = '';
+    }
     window.location.reload();
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
+
+  // НОВОЕ: функция отправки дополнительных фото
+  const sendAdditionalPhotos = useCallback(async () => {
+    if (additionalPhotos.length === 0 || !formData.location) return;
+
+    setIsLoading(true);
+    try {
+      await apiService.sendAdditionalPhotos(formData.location, additionalPhotos);
+      showNotification('success', 'Дополнительные фото отправлены!', 'Дополнительные фотографии накладных успешно отправлены');
+      setAdditionalPhotos([]); // Очищаем дополнительные фото после успешной отправки
+      if (additionalPhotoInputRef.current) {
+        additionalPhotoInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('❌ Ошибка отправки дополнительных фото:', error);
+      showNotification('error', 'Ошибка сервера', `Не удалось отправить дополнительные фото: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [additionalPhotos, formData.location, apiService, showNotification, setIsLoading]);
 
   const handleSubmit = useCallback(async () => {
     // Валидация
@@ -246,7 +331,23 @@ export const ReceivingForm = ({
 
       const result = await apiService.createReceivingReport(apiFormData);
       clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
-      showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
+
+      // НОВОЕ: автоматически отправляем дополнительные фото если они есть
+      if (additionalPhotos.length > 0) {
+        try {
+          await apiService.sendAdditionalPhotos(formData.location, additionalPhotos);
+          showNotification('success', 'Отчет отправлен!', `Отчет приема товаров успешно отправлен вместе с ${additionalPhotos.length} дополнительными фотографиями`);
+          setAdditionalPhotos([]); // Очищаем дополнительные фото после успешной отправки
+          if (additionalPhotoInputRef.current) {
+            additionalPhotoInputRef.current.value = '';
+          }
+        } catch (additionalPhotoError) {
+          console.error('❌ Ошибка отправки дополнительных фото:', additionalPhotoError);
+          showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен, но дополнительные фотографии не удалось отправить');
+        }
+      } else {
+        showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
+      }
 
     } catch (error) {
       console.error('❌ Ошибка отправки отчета:', error);
@@ -254,7 +355,7 @@ export const ReceivingForm = ({
     } finally {
       setIsLoading(false);
     }
-  }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
+  }, [formData, additionalPhotos, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
 
   return (
     <>
@@ -473,6 +574,103 @@ export const ReceivingForm = ({
             )}
           </div>
 
+          {/* НОВОЕ: Секция дополнительных фото - показывается когда основных фото 10 */}
+          {formData.photos.length === 10 && (
+            <div className="mb-6">
+              <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
+                <Camera size={16} className="text-orange-500" />
+                📸 Дополнительные фотографии
+              </label>
+              <p className="text-xs text-orange-600 mb-3">
+                Если нужно еще больше фото - добавьте их сюда. Они отправятся автоматически вместе с основным отчетом.
+              </p>
+
+              {/* Input для дополнительных фото */}
+              <input
+                ref={additionalPhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    addAdditionalPhotos([e.target.files[0]]);
+                  }
+                }}
+                disabled={isLoading}
+                className="hidden"
+                name="additional_photo"
+                id="additional_photo"
+              />
+
+              {/* Кнопка для добавления дополнительных фото */}
+              <button
+                type="button"
+                onClick={() => additionalPhotoInputRef.current?.click()}
+                disabled={isLoading || additionalPhotos.length >= 10}
+                className={`w-full photo-upload-button ${
+                  additionalPhotos.length >= 10
+                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
+                    : 'border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <Camera size={24} className="text-orange-600" />
+                  <div className="text-center">
+                    <div className="font-semibold text-orange-700 text-lg">
+                      {additionalPhotos.length >= 10
+                        ? 'Достигнут максимум (10 фото)'
+                        : 'Добавить дополнительные фото'
+                      }
+                    </div>
+                    <div className="text-sm text-orange-600">
+                      {additionalPhotos.length > 0
+                        ? `Загружено: ${additionalPhotos.length} из 10`
+                        : 'Эти фото отправятся вместе с основным отчетом'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Показываем дополнительные фотографии */}
+              {additionalPhotos.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-medium text-orange-700 mb-2">
+                    📸 Дополнительные фотографии ({additionalPhotos.length}):
+                  </h4>
+                  <p className="text-xs text-orange-600 mb-2">
+                    ✅ Эти фото будут отправлены автоматически вместе с основным отчетом
+                  </p>
+                  <div className="space-y-2">
+                    {additionalPhotos.map((photo, index) => (
+                      <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <div className="flex items-start gap-3">
+                          <Image size={20} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-orange-700 truncate mb-1">
+                              📄 {photo.name}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-orange-600">
+                              <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>
+                              <span>🖼️ {photo.type}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAdditionalPhotoClick(index)}
+                            className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                            disabled={isLoading}
+                          >
+                            <XCircle size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Kitchen Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
@@ -676,6 +874,21 @@ export const ReceivingForm = ({
         onConfirm={handleConfirmDeletePhoto}
         title="Удалить фотографию"
         message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.photos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
+        confirmText="Удалить"
+        cancelText="Отмена"
+        type="danger"
+      />
+
+      {/* НОВОЕ: Модальное окно подтверждения удаления дополнительного фото */}
+      <ConfirmationModal
+        isOpen={showDeleteAdditionalPhotoModal}
+        onClose={() => {
+          setShowDeleteAdditionalPhotoModal(false);
+          setAdditionalPhotoToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteAdditionalPhoto}
+        title="Удалить дополнительную фотографию"
+        message={`Вы уверены, что хотите удалить дополнительную фотографию "${additionalPhotoToDelete !== null ? additionalPhotos[additionalPhotoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
         confirmText="Удалить"
         cancelText="Отмена"
         type="danger"
