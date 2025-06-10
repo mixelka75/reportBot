@@ -12,7 +12,8 @@ RUN npm install
 COPY . .
 
 # Собираем приложение
-RUN npm run build
+RUN npm install --save-dev terser && \
+    npm run build
 
 # Второй этап - используем nginx для хостинга
 FROM nginx:alpine
