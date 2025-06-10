@@ -27,8 +27,8 @@ export const CashierReportForm = ({
     shift: '',
     date: getCurrentMSKTime(),
     cashierName: '',
-    incomes: Array(5).fill({ amount: '', comment: '' }),
-    expenses: Array(10).fill({ name: '', amount: '' }),
+    incomes: Array(2).fill({ amount: '', comment: '' }),
+    expenses: Array(2).fill({ name: '', amount: '' }),
     iikoData: {
       totalRevenue: '',
       returns: '',
@@ -40,7 +40,8 @@ export const CashierReportForm = ({
       primehill: ''
     },
     factCash: '',
-    photo: null
+    photo: null,
+    comments: '' // НОВОЕ: поле для комментариев
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
@@ -64,7 +65,7 @@ export const CashierReportForm = ({
         data.incomes.some(i => i.amount || i.comment) ||
         data.expenses.some(e => e.name || e.amount) ||
         Object.values(data.iikoData).some(v => v) ||
-        data.factCash || data.photo) {
+        data.factCash || data.photo || data.comments) {
       await saveDraft('cashier', data);
     }
   }, [saveDraft]);
@@ -228,6 +229,11 @@ export const CashierReportForm = ({
 
       // Фото
       apiFormData.append('photo', formData.photo);
+
+      // Комментарии
+      if (formData.comments && formData.comments.trim()) {
+        apiFormData.append('comments', formData.comments.trim());
+      }
 
       const result = await apiService.createShiftReport(apiFormData);
       clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
@@ -711,6 +717,22 @@ export const CashierReportForm = ({
                 <span>{Math.abs(calculateTotals.difference).toLocaleString()} ₽</span>
               </div>
             </div>
+          </div>
+
+          {/* Comments Section */}
+          <div className="mb-6">
+            <label className="text-sm font-medium block mb-2 text-gray-700">💬 Комментарии</label>
+            <p className="text-xs text-gray-600 mb-3">Дополнительные комментарии к отчету (необязательно)</p>
+            <textarea
+              value={formData.comments}
+              onChange={(e) => handleInputChange('comments', e.target.value)}
+              disabled={isLoading}
+              className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:border-gray-500 focus:outline-none disabled:opacity-50 transition-colors resize-none"
+              placeholder="Введите дополнительные комментарии к отчету..."
+              rows={4}
+              name="comments"
+              id="comments"
+            />
           </div>
 
           {/* Action Buttons */}

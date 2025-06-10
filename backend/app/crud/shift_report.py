@@ -113,6 +113,7 @@ class ShiftReportCRUD:
                 calculated_amount=calculations["calculated_amount"],
                 surplus_shortage=calculations["surplus_shortage"],
                 photo_path=photo_path,
+                comments=report_data.comments,
                 status="draft"
             )
 
@@ -174,7 +175,8 @@ class ShiftReportCRUD:
                         'total_expenses': float(db_report.total_expenses),
                         'calculated_amount': float(db_report.calculated_amount),
                         'fact_cash': float(db_report.fact_cash),
-                        'surplus_shortage': float(db_report.surplus_shortage)
+                        'surplus_shortage': float(db_report.surplus_shortage),
+                        "comments": db_report.comments
                     }
 
                     # Отправляем в Telegram (с таймаутом)

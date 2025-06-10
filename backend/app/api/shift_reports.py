@@ -59,6 +59,9 @@ async def create_shift_report(
 
         # Фото
         photo: UploadFile = File(..., description="Фото кассового отчета"),
+
+        comments: Optional[str] = Form(default=None, description="Комметарий"),
+
         db: AsyncSession = Depends(get_db)
 ):
     """
@@ -95,7 +98,8 @@ async def create_shift_report(
             yandex_food=yandex_food,
             yandex_food_no_system=yandex_food_no_system,  # НОВОЕ ПОЛЕ
             primehill=primehill,  # НОВОЕ ПОЛЕ
-            fact_cash=fact_cash
+            fact_cash=fact_cash,
+            comments=comments,
         )
 
         # Создаем отчет в базе данных

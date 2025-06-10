@@ -549,11 +549,13 @@ class TelegramService:
 """
 
         if surplus_shortage > 0:
-            message += f"✅ <b>Излишек: +{surplus_shortage}₽</b>"
+            message += f"✅ <b>Излишек: +{surplus_shortage}₽</b>\n"
         elif surplus_shortage < 0:
-            message += f"❌ <b>Недостача: {surplus_shortage}₽</b>"
+            message += f"❌ <b>Недостача: {surplus_shortage}₽</b>\n"
         else:
-            message += f"✅ <b>Сходится: {surplus_shortage}₽</b>"
+            message += f"✅ <b>Сходится: {surplus_shortage}₽</b>\n"
+
+        message += f"<b>КОММЕНТАРИИ: {data.get("comments") if data.get("comments") else 'Отсутствуют'}</b>"
 
         return message
 

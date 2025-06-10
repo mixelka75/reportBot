@@ -42,3 +42,5 @@ class ShiftReport(Base):
     # Метаданные
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(20), nullable=False, default="draft")  # "draft", "sent"
+
+    comments = Column(Text, nullable=True)
