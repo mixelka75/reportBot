@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Send, RefreshCw, Home, Plus } from 'lucide-react';
+import { MapPin, Send, RefreshCw, Home, Plus, Clock, User } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useFormData } from '../../hooks/useFormData';
-import { getTodayDate, getYesterdayDate } from '../../utils/dateUtils';
+import { getTodayDate, getYesterdayDate, getCurrentMSKTime } from '../../utils/dateUtils';
 
 export const WriteOffForm = ({
   isLoading,
@@ -24,7 +24,10 @@ export const WriteOffForm = ({
 }) => {
   const [formData, setFormData] = useState({
     location: '',
-    date: '', // ИСПРАВЛЕНО: выбор даты
+    shift: '', // ДОБАВИТЬ
+    cashierName: '', // ДОБАВИТЬ
+    date: getCurrentMSKTime(), // ИСПРАВЛЕНО: выбор даты
+
     writeOffs: Array(4).fill({ name: '', weight: '', unit: '', reason: '' }), // ИСПРАВЛЕНО: 10 элементов
     transfers: Array(4).fill({ name: '', weight: '', unit: '', reason: '' }) // ИСПРАВЛЕНО: 10 элементов
   });
@@ -97,6 +100,8 @@ export const WriteOffForm = ({
     const errors = {};
 
     if (!formData.location) errors.location = 'Выберите локацию';
+    if (!formData.shift) errors.shift = 'Выберите смену'; // ДОБАВИТЬ
+    if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира'; // ДОБАВИТЬ
     if (!formData.date) errors.date = 'Выберите дату';
 
     // Проверяем, что есть хотя бы одна заполненная позиция
@@ -120,8 +125,8 @@ export const WriteOffForm = ({
 
       // Основные поля
       apiFormData.append('location', formData.location);
-      apiFormData.append('report_date', formData.date);
-      apiFormData.append('date', formData.date);
+      apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night'); // ДОБАВИТЬ
+      apiFormData.append('cashier_name', formData.cashierName); // ДОБАВИТЬ
 
       // Списания - ИСПРАВЛЕНО: используем правильную структуру как в монолитной версии
       const writeoffs = formData.writeOffs
@@ -210,57 +215,67 @@ export const WriteOffForm = ({
             </div>
           </div>
 
-          {/* Date - ИЗМЕНЕНО: выбор даты с кнопками быстрого выбора */}
-          <div className="mb-6">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📆 Выбор даты</label>
-            <p className="text-xs text-amber-600 mb-3">Если вы ночной кассир указывайте время вчерашнюю</p>
-
-            {/* Кнопки быстрого выбора */}
-            <div className="flex gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => handleInputChange('date', getTodayDate())}
-                disabled={isLoading}
-                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
-                  formData.date === getTodayDate()
-                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
-                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
-                }`}
-              >
-                📅 Сегодня
-              </button>
-              <button
-                type="button"
-                onClick={() => handleInputChange('date', getYesterdayDate())}
-                disabled={isLoading}
-                className={`flex-1 p-2 rounded-lg border transition-colors disabled:opacity-50 text-sm ${
-                  formData.date === getYesterdayDate()
-                    ? 'bg-purple-500 border-purple-500 text-white shadow-md'
-                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
-                }`}
-              >
-                📅 Вчера
-              </button>
+          {/* Shift Selection - ДОБАВИТЬ ПОСЛЕ БЛОКА LOCATION */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <Clock size={16} className="text-red-500" />
+              🕐 Смена:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {['Утро', 'Ночь'].map(shift => (
+                <button
+                  key={shift}
+                  onClick={() => handleInputChange('shift', shift)}
+                  disabled={isLoading}
+                  className={`p-3 text-center rounded-lg border transition-colors disabled:opacity-50 ${
+                    formData.shift === shift 
+                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
+                >
+                  {shift}
+                </button>
+              ))}
             </div>
+            {validationErrors.shift && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.shift}</p>
+            )}
+          </div>
 
-            {/* Поле ввода даты */}
+          {/* Cashier Name - ДОБАВИТЬ ПОСЛЕ БЛОКА SHIFT */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <User size={16} className="text-red-500" />
+              👤 Имя кассира:
+            </label>
+            <MemoizedInput
+              type="text"
+              placeholder="Введите ФИО кассира"
+              value={formData.cashierName}
+              onChange={(e) => handleInputChange('cashierName', e.target.value)}
+              disabled={isLoading}
+              className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
+                validationErrors.cashierName 
+                  ? 'border-red-400 bg-red-50 text-red-700' 
+                  : 'bg-white border-gray-300 focus:border-red-500 focus:outline-none text-gray-700'
+              }`}
+              name="cashier-name"
+              id="cashier-name"
+            />
+            {validationErrors.cashierName && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.cashierName}</p>
+            )}
+          </div>
+
+          {/* Date & Time - КАК В КАССОВОМ ОТЧЕТЕ */}
+          <div className="mb-4">
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
             <input
               type="text"
-              value={formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('ru-RU') : 'Дата не выбрана'}
+              value={formData.date}
               readOnly
-              id="date-field"
-              className={`w-full p-3 border rounded-lg text-center transition-colors ${
-                validationErrors.date 
-                  ? 'border-red-400 bg-red-50 text-red-700' 
-                  : 'bg-gray-100 border-gray-300 text-gray-700'
-              }`}
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
             />
-            {!formData.date && !validationErrors.date && (
-              <p className="text-xs text-red-500 mt-1">📅 Нажмите на кнопки выше для выбора даты</p>
-            )}
-            {validationErrors.date && (
-              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.date}</p>
-            )}
           </div>
 
           {/* Write-offs Section */}

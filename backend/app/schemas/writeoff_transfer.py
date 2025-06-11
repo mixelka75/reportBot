@@ -45,11 +45,9 @@ class WriteoffTransferCreate(BaseModel):
         description="Название локации",
         example="Абдулхакима Исмаилова 51"
     )
+    shift_type: str = Field(description="Тип смены")
+    cashier_name: str = Field(description="ФИО кассира")
 
-    report_date: date = Field(
-        ...,
-        description="Дата отчёта",
-    )
 
     writeoffs: List[WriteoffEntry] = Field(
         default_factory=list,
@@ -82,7 +80,8 @@ class WriteoffTransferResponse(BaseModel):
     """Ответ с данными созданного акта списания/перемещения"""
     id: int = Field(description="Уникальный идентификатор отчета")
     location: str = Field(description="Название локации")
-    report_date: date = Field(description="Дата отчёта")
+    shift_type: str = Field(description="Тип смены")
+    cashier_name: str = Field(description="ФИО кассира")
     created_date: datetime = Field(description="Дата и время создания")
 
     writeoffs: List[Dict[str, Any]] = Field(description="Список списаний")

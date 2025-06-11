@@ -20,7 +20,6 @@ class WriteoffTransferCRUD:
             self,
             db: AsyncSession,
             report_data: WriteoffTransferCreate,
-            date: datetime
     ) -> WriteoffTransfer:
         """
         Создает акт списания/перемещения.
@@ -49,9 +48,10 @@ class WriteoffTransferCRUD:
             # Создаем запись в БД
             db_report = WriteoffTransfer(
                 location=report_data.location,
-                report_date=report_data.report_date,
                 writeoffs=writeoffs_dict,
-                transfers=transfers_dict
+                transfers=transfers_dict,
+                shift_type=report_data.shift_type,
+                cashier_name=report_data.cashier_name,
             )
 
             db.add(db_report)
@@ -62,7 +62,7 @@ class WriteoffTransferCRUD:
 
             # Запускаем отправку в Telegram в фоне
             if self.telegram_service:
-                asyncio.create_task(self._send_to_telegram_background(db_report.id, date))
+                asyncio.create_task(self._send_to_telegram_background(db_report.id))
 
             return db_report
 
@@ -75,7 +75,7 @@ class WriteoffTransferCRUD:
             await db.rollback()
             raise e
 
-    async def _send_to_telegram_background(self, report_id: int, date: datetime):
+    async def _send_to_telegram_background(self, report_id: int):
         """
         Фоновая отправка акта в Telegram.
         """
@@ -99,16 +99,16 @@ class WriteoffTransferCRUD:
                     # Подготавливаем данные для отправки
                     report_dict = {
                         'location': db_report.location,
-                        'report_date': db_report.report_date,
                         'created_date': db_report.created_date,
+                        'cashier_name': db_report.cashier_name,
+                        'shift_type': db_report.shift_type,
                         'writeoffs': db_report.writeoffs,
                         'transfers': db_report.transfers,
-                        "date": date
                     }
 
                     # Отправляем в Telegram (с таймаутом)
                     telegram_success = await asyncio.wait_for(
-                        self.telegram_service.send_writeoff_transfer_report(report_dict, date),
+                        self.telegram_service.send_writeoff_transfer_report(report_dict),
                         timeout=30  # 30 секунд таймаут
                     )
 

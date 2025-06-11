@@ -39,11 +39,6 @@ async def create_writeoff_transfer(
             example="Абдулхакима Исмаилова 51"
         ),
 
-        report_date: date = Form(
-            ...,
-            description="Дата отчёта",
-            example="2025-05-24"
-        ),
 
         writeoffs_json: Optional[str] = Form(
             default=None,
@@ -68,11 +63,12 @@ async def create_writeoff_transfer(
 - weight: вес/количество (положительное число)
 - unit: единица измерения (строка)
 - reason: причина перемещения (строка)
-
+date
 Пример: [{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]""",
             example='[{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]'
         ),
-        date: datetime = Form(...),
+        shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
+        cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
 
         db: AsyncSession = Depends(get_db),
 ) -> WriteoffTransferResponse:
@@ -80,14 +76,6 @@ async def create_writeoff_transfer(
     Создать акт списания и перемещения товаров.
     """
     try:
-        # Проверяем допустимые локации
-        allowed_locations = LOCATIONS
-
-        if location not in allowed_locations:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Недопустимая локация. Выберите одну из: {', '.join(allowed_locations)}"
-            )
 
         # Парсим списания
         writeoffs_list = []
@@ -183,12 +171,13 @@ async def create_writeoff_transfer(
         # Создаем акт
         report_data = WriteoffTransferCreate(
             location=location,
-            report_date=report_date,
             writeoffs=writeoffs_list,
-            transfers=transfers_list
+            transfers=transfers_list,
+            cashier_name=cashier_name,
+            shift_type=shift_type
         )
 
-        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data, date)
+        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data)
 
     except HTTPException:
         raise
