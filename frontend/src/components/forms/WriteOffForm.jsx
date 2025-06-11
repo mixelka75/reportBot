@@ -5,7 +5,7 @@ import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useFormData } from '../../hooks/useFormData';
-import { getTodayDate, getYesterdayDate, getCurrentMSKTime } from '../../utils/dateUtils';
+import { getCurrentMSKTime } from '../../utils/dateUtils';
 
 export const WriteOffForm = ({
   isLoading,

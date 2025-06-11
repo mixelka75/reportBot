@@ -114,9 +114,9 @@ async def create_report_on_goods(
 Пример: [{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]""",
             example='[{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]'
         ),
-
-        date: datetime = Form(...),
         photos: List[UploadFile] = File(None, description="Фотографии товаров/накладных"),
+        shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
+        cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
         db: AsyncSession = Depends(get_db),
 ) -> ReportOnGoodsResponse:
     """
@@ -285,6 +285,8 @@ async def create_report_on_goods(
             kuxnya=kuxnya_list,
             bar=bar_list,
             upakovki=upakovky_list,
+            shift_type=shift_type,
+            cashier_name=cashier_name
         )
 
         photos_data = []
@@ -297,7 +299,7 @@ async def create_report_on_goods(
                     "content_type": photo.content_type
                 })
 
-        return await repg.create_report_on_good(db, report_on_goods_data, date=date, photos=photos_data)
+        return await repg.create_report_on_good(db, report_on_goods_data, photos=photos_data)
 
     except HTTPException:
         raise

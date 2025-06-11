@@ -348,7 +348,7 @@ class TelegramService:
             print(f"⚠️  Отчет инвентаризации создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def send_goods_report(self, report_data: Dict[str, Any], date: datetime,
+    async def send_goods_report(self, report_data: Dict[str, Any],
                                 photos: List[Dict[str, Any]]) -> bool:
         """Отправляет отчет приема товаров в Telegram с фотографиями"""
         if not self.enabled:
@@ -359,7 +359,7 @@ class TelegramService:
             topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
 
             # Форматируем сообщение
-            message = self._format_goods_report_message(report_data, date)
+            message = self._format_goods_report_message(report_data)
 
             success = False
 
@@ -590,7 +590,7 @@ class TelegramService:
 - Булка на шаурму: <b>{data.get('bulka_na_shaurmu', 0)} шт</b>
 - Лаваш: <b>{data.get('lavash', 0)} шт</b>
 - Лепешки: <b>{data.get('lepeshki', 0)} шт</b>
-- Кетчуп дип: <b>{data.get('ketchup_dip', 0)} шт</b>
+- Кетчуп'mornin дип: <b>{data.get('ketchup_dip', 0)} шт</b>
 - Сырный соус дип: <b>{data.get('sirny_sous_dip', 0)} шт</b>
 - Курица жареная: <b>{data.get('kuriza_jareny', 0)} кг</b>
 - Курица сырая: <b>{data.get('kuriza_siraya', 0)} кг</b>
@@ -598,13 +598,14 @@ class TelegramService:
 
         return message
 
-    def _format_goods_report_message(self, data: Dict[str, Any], date: datetime) -> str:
+    def _format_goods_report_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение отчета приема товаров"""
         message = f"""📋 <b>ОТЧЁТ ПРИЁМА ТОВАРА</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-🕐 <b>Дата:</b> {{datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%H:%M')}}
-
+🕐 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
+📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
 """
 
         # Кухня

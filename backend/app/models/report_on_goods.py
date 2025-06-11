@@ -7,6 +7,8 @@ class ReportOnGoods(Base):
 
     location = Column(String(255), nullable=False)
     date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    shift_type = Column(String(20), nullable=False)  # "morning" или "night"
+    cashier_name = Column(String(255), nullable=False)
 
     # КУХНЯ
     kuxnya = Column(JSON, nullable=False, default=list)

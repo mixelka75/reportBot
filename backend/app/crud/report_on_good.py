@@ -15,7 +15,6 @@ class ReportOnGoodCRUD:
             self,
             db: AsyncSession,
             report_data: ReportOnGoodsCreate,
-            date: datetime,
             photos: List[Dict[str, Any]]
     ):
         kuxnya_dict = []
@@ -44,6 +43,8 @@ class ReportOnGoodCRUD:
 
         db_report = ReportOnGoods(
             location=report_data.location,
+            shift_type=report_data.shift_type,
+            cashier_name=report_data.cashier_name,
             kuxnya=kuxnya_dict,
             bar=bar_dict,
             upakovki_xoz=upakovki_dict,
@@ -57,13 +58,14 @@ class ReportOnGoodCRUD:
         try:
             report_dict = {
                 'location': db_report.location,
-                'date': db_report.date,
+                'cashier_name': db_report.cashier_name,
+                'shift_type': db_report.shift_type,
                 'kuxnya': db_report.kuxnya,
                 'bar': db_report.bar,
                 'upakovki_xoz': db_report.upakovki_xoz,
             }
 
-            await self.telegram_service.send_goods_report(report_dict, date, photos=photos)
+            await self.telegram_service.send_goods_report(report_dict, photos=photos)
 
         except Exception as e:
             print(f"Ошибка отправки отчета товаров в Telegram: {str(e)}")

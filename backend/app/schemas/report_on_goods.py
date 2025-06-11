@@ -57,6 +57,8 @@ class ReportOnGoodsCreate(BaseModel):
         description="Название локации",
         example="Кафе Центральный"
     )
+    shift_type: str = Field(description="Тип смены")
+    cashier_name: str = Field(description="ФИО кассира")
 
     kuxnya: List[KuxnyaJson] = Field(
         default_factory=list,
@@ -97,11 +99,12 @@ class ReportOnGoodsResponse(BaseModel):
     """Ответ с данными созданного отчета приема товаров"""
     id: int = Field(description="Уникальный идентификатор отчета")
     location: str = Field(description="Название локации")
-    date: datetime = Field(description="Дата и время создания отчета")
 
     kuxnya: List[Dict[str, Any]] = Field(description="Список товаров для кухни")
     bar: List[Dict[str, Any]] = Field(description="Список товаров для бара")
     upakovki_xoz: List[Dict[str, Any]] = Field(description="Список упаковок и хозтоваров")
+    shift_type: str = Field(description="Тип смены")
+    cashier_name: str = Field(description="ФИО кассира")
 
     class Config:
         from_attributes = True
