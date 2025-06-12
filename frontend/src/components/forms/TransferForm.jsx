@@ -7,7 +7,7 @@ import { useAutoSave } from '../../hooks/useAutoSave';
 import { useFormData } from '../../hooks/useFormData';
 import { getCurrentMSKTime } from '../../utils/dateUtils';
 
-export const WriteOffForm = ({
+export const TransferForm = ({
   isLoading,
   setIsLoading,
   validationErrors,
@@ -27,7 +27,7 @@ export const WriteOffForm = ({
     shift: '',
     cashierName: '',
     date: getCurrentMSKTime(),
-    writeOffs: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
+    transfers: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
@@ -45,10 +45,10 @@ export const WriteOffForm = ({
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
-    const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.unit || item.reason);
+    const hasTransfers = data.transfers.some(item => item.name || item.weight || item.unit || item.reason);
 
-    if (data.location || hasWriteOffs) {
-      await saveDraft('writeoff', data);
+    if (data.location || hasTransfers) {
+      await saveDraft('transfer', data);
     }
   }, [saveDraft]);
 
@@ -77,10 +77,10 @@ export const WriteOffForm = ({
   }, []);
 
   const addArrayItem = useCallback((arrayName) => {
-  setFormData(prev => ({
-    ...prev,
-    [arrayName]: [...prev[arrayName], { name: '', weight: '', unit: '', reason: '' }]
-  }));
+    setFormData(prev => ({
+      ...prev,
+      [arrayName]: [...prev[arrayName], { name: '', weight: '', unit: '', reason: '' }]
+    }));
   }, []);
 
   // Функция очистки формы
@@ -102,10 +102,10 @@ export const WriteOffForm = ({
     if (!formData.date) errors.date = 'Выберите дату';
 
     // Проверяем, что есть хотя бы одна заполненная позиция
-    const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.unit && item.reason);
+    const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.unit && item.reason);
 
-    if (!hasWriteOffs) {
-      errors.items = 'Заполните хотя бы одну позицию списания (название + вес + единица + причина)';
+    if (!hasTransfers) {
+      errors.items = 'Заполните хотя бы одну позицию перемещения (название + вес + единица + причина)';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -124,8 +124,9 @@ export const WriteOffForm = ({
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
 
-      // Списания
-      const writeoffs = formData.writeOffs
+      // Отправляем только перемещения, списания будут пустыми
+      const writeoffs = [];
+      const transfers = formData.transfers
         .filter(item => item.name && item.weight && item.unit && item.reason)
         .map(item => ({
           name: item.name,
@@ -134,17 +135,16 @@ export const WriteOffForm = ({
           reason: item.reason
         }));
 
-      if (writeoffs.length > 0) {
-        apiFormData.append('writeoffs_json', JSON.stringify(writeoffs));
-      }
+      // Отправляем пустые списания для совместимости с API
+      apiFormData.append('writeoffs_json', JSON.stringify(writeoffs));
 
-      // Отправляем пустые перемещения для совместимости с API
-      const transfers = [];
-      apiFormData.append('transfers_json', JSON.stringify(transfers));
+      if (transfers.length > 0) {
+        apiFormData.append('transfers_json', JSON.stringify(transfers));
+      }
 
       const result = await apiService.createWriteOffReport(apiFormData);
       clearCurrentDraft();
-      showNotification('success', 'Акт списания отправлен!', 'Акт списания успешно отправлен и сохранен в системе');
+      showNotification('success', 'Акт перемещения отправлен!', 'Акт перемещения успешно отправлен и сохранен в системе');
 
     } catch (error) {
       console.error('❌ Ошибка отправки отчета:', error);
@@ -167,9 +167,9 @@ export const WriteOffForm = ({
               <Home size={20} className="text-gray-600" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-red-600">🗑️ Акты списания</h1>
+              <h1 className="text-2xl font-bold text-blue-600">↔️ Акты перемещения</h1>
               {currentDraftId && (
-                <p className="text-sm text-red-600">✓ Автосохранение включено</p>
+                <p className="text-sm text-blue-600">✓ Автосохранение включено</p>
               )}
             </div>
           </div>
@@ -180,7 +180,7 @@ export const WriteOffForm = ({
           {/* Location */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-              <MapPin size={16} className="text-red-500" />
+              <MapPin size={16} className="text-blue-500" />
               📍 Локация:
             </label>
             <div className="space-y-2">
@@ -191,7 +191,7 @@ export const WriteOffForm = ({
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.location === loc 
-                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
                       : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
                   } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
                 >
@@ -204,7 +204,7 @@ export const WriteOffForm = ({
           {/* Shift Selection */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-              <Clock size={16} className="text-red-500" />
+              <Clock size={16} className="text-blue-500" />
               🕐 Смена:
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -215,7 +215,7 @@ export const WriteOffForm = ({
                   disabled={isLoading}
                   className={`p-3 text-center rounded-lg border transition-colors disabled:opacity-50 ${
                     formData.shift === shift 
-                      ? 'bg-red-500 border-red-500 text-white shadow-md' 
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
                       : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
                   } ${validationErrors.shift ? 'border-red-400 bg-red-50' : ''}`}
                 >
@@ -231,7 +231,7 @@ export const WriteOffForm = ({
           {/* Cashier Name */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-              <User size={16} className="text-red-500" />
+              <User size={16} className="text-blue-500" />
               👤 Имя кассира:
             </label>
             <MemoizedInput
@@ -243,7 +243,7 @@ export const WriteOffForm = ({
               className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
                 validationErrors.cashierName 
                   ? 'border-red-400 bg-red-50 text-red-700' 
-                  : 'bg-white border-gray-300 focus:border-red-500 focus:outline-none text-gray-700'
+                  : 'bg-white border-gray-300 focus:border-blue-500 focus:outline-none text-gray-700'
               }`}
               name="cashier-name"
               id="cashier-name"
@@ -264,60 +264,60 @@ export const WriteOffForm = ({
             />
           </div>
 
-          {/* Write-offs Section */}
+          {/* Transfers Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-red-600 mb-3">🗑️ Списания</h3>
-            <p className="text-sm text-gray-600 mb-3">Наименование - количество - кг/шт - причина</p>
-            {formData.writeOffs.map((item, index) => (
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещения</h3>
+            <p className="text-sm text-gray-600 mb-3">Наименование - количество - кг/шт - причина и куда отправили</p>
+            {formData.transfers.map((item, index) => (
               <div key={index} className="grid grid-cols-4 gap-1 mb-2">
                 <MemoizedInput
                   type="text"
                   placeholder="Наименование"
                   value={item.name}
-                  onChange={(e) => handleArrayChange('writeOffs', index, 'name', e.target.value)}
+                  onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`writeoff-name-${index}`}
-                  id={`writeoff-name-${index}`}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`transfer-name-${index}`}
+                  id={`transfer-name-${index}`}
                 />
                 <MemoizedInput
                   type="text"
                   placeholder="Количество"
                   value={item.weight}
                   onChange={(e) => handleNumberInput(e, (value) =>
-                    handleArrayChange('writeOffs', index, 'weight', value)
+                    handleArrayChange('transfers', index, 'weight', value)
                   )}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`writeoff-weight-${index}`}
-                  id={`writeoff-weight-${index}`}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`transfer-weight-${index}`}
+                  id={`transfer-weight-${index}`}
                 />
                 <MemoizedInput
                   type="text"
                   placeholder="кг/шт"
                   value={item.unit}
-                  onChange={(e) => handleArrayChange('writeOffs', index, 'unit', e.target.value)}
+                  onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`writeoff-unit-${index}`}
-                  id={`writeoff-unit-${index}`}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`transfer-unit-${index}`}
+                  id={`transfer-unit-${index}`}
                 />
                 <MemoizedInput
                   type="text"
-                  placeholder="Причина"
+                  placeholder="Причина и куда переместили"
                   value={item.reason}
-                  onChange={(e) => handleArrayChange('writeOffs', index, 'reason', e.target.value)}
+                  onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`writeoff-reason-${index}`}
-                  id={`writeoff-reason-${index}`}
+                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
+                  name={`transfer-reason-${index}`}
+                  id={`transfer-reason-${index}`}
                 />
               </div>
             ))}
             <button
-              onClick={() => addArrayItem('writeOffs')}
+              onClick={() => addArrayItem('transfers')}
               disabled={isLoading}
-              className="w-full p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
+              className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
               добавить еще
@@ -337,7 +337,7 @@ export const WriteOffForm = ({
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
+              className="flex-1 flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
                 <>

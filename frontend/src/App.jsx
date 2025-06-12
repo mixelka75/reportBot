@@ -5,6 +5,7 @@ import {
   InventoryForm,
   ReceivingForm,
   WriteOffForm,
+  TransferForm,
   InventoryManagement
 } from './components/forms';
 import { NotificationScreen } from './components/common';
@@ -319,6 +320,8 @@ function App() {
       return <ReceivingForm {...formProps} locations={formProps.reportLocations}/>;
     case 'writeoff':
       return <WriteOffForm {...formProps} locations={formProps.reportLocations}/>;
+    case 'transfer':
+      return <TransferForm {...formProps} locations={formProps.reportLocations}/>;
     case 'inventory-management':
       return <InventoryManagement goToMenu={goToMenu}/>;
     default:
