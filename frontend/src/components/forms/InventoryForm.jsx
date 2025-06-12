@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Clock, Send, RefreshCw, Home } from 'lucide-react';
+import { MapPin, Clock, Send, RefreshCw, Home, Package, Search, Filter } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
@@ -27,44 +27,62 @@ export const InventoryForm = ({
     shift: '',
     date: getCurrentMSKTime(),
     conductor: '',
-    items: {
-      'IL Primo стекло': '',
-      'Вода Горная': '',
-      'Добрый сок ПЭТ': '',
-      'Кураговый компот': '',
-      'Напитки ЖБ': '',
-      'Энергетики': '',
-      'Колд Брю': '',
-      'Kinza напитки': '',
-      'Палпи': '',
-      'Барбекю дип': '',
-      'Булка на шаурму': '',
-      'Лаваш': '',
-      'Лепешки': '',
-      'Кетчуп дип': '',
-      'Сырный соус дип': '',
-      'Курица жаренная': '',
-      'Курица сырая': ''
-    }
+    inventory_data: [] // НОВОЕ: используем новую структуру данных
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
+  const [availableItems, setAvailableItems] = useState([]); // НОВОЕ: список товаров из API
+  const [itemsLoading, setItemsLoading] = useState(true); // НОВОЕ: состояние загрузки товаров
+  const [searchTerm, setSearchTerm] = useState(''); // НОВОЕ: поиск товаров
+  const [filterCategory, setFilterCategory] = useState(''); // НОВОЕ: фильтр по категории
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
+
+  // НОВОЕ: загрузка товаров из API
+  useEffect(() => {
+    const loadItems = async () => {
+      setItemsLoading(true);
+      try {
+        const response = await apiService.getInventoryItems({
+          is_active: true,
+          limit: 1000
+        });
+
+        const items = response.items || [];
+        setAvailableItems(items);
+
+        // Инициализируем inventory_data с нулевыми значениями для всех товаров
+        setFormData(prev => ({
+          ...prev,
+          inventory_data: items.map(item => ({
+            item_id: item.id,
+            quantity: 0
+          }))
+        }));
+      } catch (error) {
+        console.error('Ошибка загрузки товаров:', error);
+        showNotification('error', 'Ошибка загрузки', 'Не удалось загрузить список товаров из базы данных');
+      } finally {
+        setItemsLoading(false);
+      }
+    };
+
+    loadItems();
+  }, [apiService, showNotification]);
 
   // Загружаем черновик при инициализации
   useEffect(() => {
-    if (currentDraftId) {
+    if (currentDraftId && availableItems.length > 0) {
       const draftData = loadDraft(currentDraftId);
       if (draftData) {
         setFormData(draftData);
       }
     }
-  }, [currentDraftId, loadDraft]);
+  }, [currentDraftId, loadDraft, availableItems]);
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
     if (data.location || data.shift || data.conductor ||
-        Object.values(data.items).some(v => v)) {
+        (data.inventory_data && data.inventory_data.some(item => item.quantity > 0))) {
       await saveDraft('inventory', data);
     }
   }, [saveDraft]);
@@ -85,10 +103,17 @@ export const InventoryForm = ({
     }
   }, [validationErrors, setValidationErrors]);
 
-  const handleItemChange = useCallback((item, value) => {
+  // НОВОЕ: обработка изменения количества товара
+  const handleQuantityChange = useCallback((itemId, quantity) => {
+    const numQuantity = Math.max(0, parseInt(quantity) || 0);
+
     setFormData(prev => ({
       ...prev,
-      items: { ...prev.items, [item]: value }
+      inventory_data: prev.inventory_data.map(entry =>
+        entry.item_id === itemId
+          ? { ...entry, quantity: numQuantity }
+          : entry
+      )
     }));
   }, []);
 
@@ -98,8 +123,43 @@ export const InventoryForm = ({
       clearCurrentDraft();
     }
     setValidationErrors({});
-    window.location.reload();
+    // Сбрасываем количества товаров на 0
+    setFormData(prev => ({
+      ...prev,
+      location: '',
+      shift: '',
+      conductor: '',
+      inventory_data: prev.inventory_data.map(entry => ({
+        ...entry,
+        quantity: 0
+      }))
+    }));
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
+
+  // НОВОЕ: фильтрация товаров
+  const filteredItems = availableItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !filterCategory || item.category === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // НОВОЕ: группировка товаров по категориям
+  const itemsByCategory = filteredItems.reduce((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = [];
+    }
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
+  // НОВОЕ: получение списка категорий
+  const categories = [...new Set(availableItems.map(item => item.category))];
+
+  // НОВОЕ: получение количества для товара
+  const getQuantityForItem = useCallback((itemId) => {
+    const entry = formData.inventory_data.find(item => item.item_id === itemId);
+    return entry ? entry.quantity : 0;
+  }, [formData.inventory_data]);
 
   const handleSubmit = useCallback(async () => {
     // Валидация
@@ -109,6 +169,12 @@ export const InventoryForm = ({
     if (!formData.shift) errors.shift = 'Выберите смену';
     if (!formData.conductor.trim()) errors.conductor = 'Введите имя сотрудника';
 
+    // НОВОЕ: проверяем что есть хотя бы один товар с количеством > 0
+    const hasItems = formData.inventory_data.some(item => item.quantity > 0);
+    if (!hasItems) {
+      errors.items = 'Укажите количество хотя бы для одного товара';
+    }
+
     if (Object.keys(errors).length > 0) {
       showValidationErrors(errors);
       return;
@@ -117,34 +183,15 @@ export const InventoryForm = ({
     setIsLoading(true);
 
     try {
-      // Подготовка FormData для API
-      const apiFormData = new FormData();
+      // НОВОЕ: используем новый API v2
+      const submitData = {
+        location: formData.location,
+        shift_type: formData.shift === 'Утро' ? 'morning' : 'night',
+        cashier_name: formData.conductor,
+        inventory_data: formData.inventory_data.filter(item => item.quantity > 0) // Отправляем только товары с количеством > 0
+      };
 
-      // Основные поля
-      apiFormData.append('location', formData.location);
-      apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
-      apiFormData.append('cashier_name', formData.conductor);
-
-      // Товары (согласно API документации)
-      apiFormData.append('il_primo_steklo', parseInt(formData.items['IL Primo стекло']) || 0);
-      apiFormData.append('voda_gornaya', parseInt(formData.items['Вода Горная']) || 0);
-      apiFormData.append('dobri_sok_pet', parseInt(formData.items['Добрый сок ПЭТ']) || 0);
-      apiFormData.append('kuragovi_kompot', parseInt(formData.items['Кураговый компот']) || 0);
-      apiFormData.append('napitki_jb', parseInt(formData.items['Напитки ЖБ']) || 0);
-      apiFormData.append('energetiky', parseInt(formData.items['Энергетики']) || 0);
-      apiFormData.append('kold_bru', parseInt(formData.items['Колд Брю']) || 0);
-      apiFormData.append('kinza_napitky', parseInt(formData.items['Kinza напитки']) || 0);
-      apiFormData.append('palli', parseInt(formData.items['Палпи']) || 0);
-      apiFormData.append('barbeku_dip', parseInt(formData.items['Барбекю дип']) || 0);
-      apiFormData.append('bulka_na_shaurmu', parseInt(formData.items['Булка на шаурму']) || 0);
-      apiFormData.append('lavash', parseInt(formData.items['Лаваш']) || 0);
-      apiFormData.append('lepeshki', parseInt(formData.items['Лепешки']) || 0);
-      apiFormData.append('ketchup_dip', parseInt(formData.items['Кетчуп дип']) || 0);
-      apiFormData.append('sirny_sous_dip', parseInt(formData.items['Сырный соус дип']) || 0);
-      apiFormData.append('kuriza_jareny', parseInt(formData.items['Курица жаренная']) || 0);
-      apiFormData.append('kuriza_siraya', parseInt(formData.items['Курица сырая']) || 0);
-
-      const result = await apiService.createInventoryReport(apiFormData);
+      const result = await apiService.createInventoryReportV2(submitData);
       clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
       showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в системе');
 
@@ -254,35 +301,118 @@ export const InventoryForm = ({
             />
           </div>
 
-          {/* Items */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">📋 Товар:</h3>
-            <div className="space-y-3">
-              {Object.entries(formData.items).map(([item, value]) => (
-                <div key={item} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-300 shadow-sm">
-                  <span className="flex-1 text-sm text-gray-700">{item}</span>
-                  <MemoizedInput
-                    type="text"
-                    value={value}
-                    onChange={(e) => handleNumberInput(e, (newValue) =>
-                      handleItemChange(item, newValue)
-                    )}
-                    disabled={isLoading}
-                    className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
-                    placeholder="0"
-                    name={`item-${item}`}
-                    id={`item-${item}`}
-                  />
-                </div>
-              ))}
+          {/* НОВОЕ: Загрузка товаров */}
+          {itemsLoading ? (
+            <div className="mb-6 p-8 text-center bg-white border border-gray-200 rounded-lg">
+              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gray-600">Загрузка товаров из базы данных...</p>
             </div>
-          </div>
+          ) : availableItems.length === 0 ? (
+            <div className="mb-6 p-8 text-center bg-white border border-gray-200 rounded-lg">
+              <Package size={48} className="mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600 mb-2">Нет доступных товаров</p>
+              <p className="text-sm text-gray-500">Обратитесь к администратору для добавления товаров</p>
+            </div>
+          ) : (
+            <>
+              {/* НОВОЕ: Поиск и фильтры */}
+              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="relative">
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Поиск товаров..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">Все категории</option>
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Filter size={16} />
+                    <span>Показано товаров: {filteredItems.length} из {availableItems.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* НОВОЕ: Товары по категориям */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-blue-600 mb-3">📋 Товары:</h3>
+                {validationErrors.items && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">⚠️ {validationErrors.items}</p>
+                  </div>
+                )}
+
+                {Object.keys(itemsByCategory).length === 0 ? (
+                  <div className="p-6 text-center bg-white border border-gray-200 rounded-lg">
+                    <p className="text-gray-600">Товары не найдены по заданным фильтрам</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(itemsByCategory).map(([category, categoryItems]) => (
+                      <div key={category} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-800 mb-3 capitalize">
+                          {category} ({categoryItems.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {categoryItems.map(item => {
+                            const quantity = getQuantityForItem(item.id);
+
+                            return (
+                              <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {item.name}
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    ID: {item.id} • {item.unit}
+                                    {item.description && ` • ${item.description}`}
+                                  </p>
+                                </div>
+                                <div className="flex-shrink-0">
+                                  <MemoizedInput
+                                    type="text"
+                                    value={quantity}
+                                    onChange={(e) => handleNumberInput(e, (newValue) =>
+                                      handleQuantityChange(item.id, newValue)
+                                    )}
+                                    disabled={isLoading}
+                                    className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
+                                    placeholder="0"
+                                    name={`item-${item.id}`}
+                                    id={`item-${item.id}`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setShowClearModal(true)}
-              disabled={isLoading}
+              disabled={isLoading || itemsLoading}
               className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 text-gray-700 shadow-sm hover:shadow-md"
             >
               <RefreshCw size={18} />
@@ -290,7 +420,7 @@ export const InventoryForm = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || itemsLoading}
               className="flex-1 flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               {isLoading ? (
@@ -305,6 +435,14 @@ export const InventoryForm = ({
                 </>
               )}
             </button>
+          </div>
+
+          {/* НОВОЕ: Информация о системе */}
+          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              ✨ <strong>Новая система:</strong> Товары теперь загружаются из базы данных.
+              Список товаров можно настроить через "Управление товарами" в главном меню.
+            </p>
           </div>
         </div>
       </div>

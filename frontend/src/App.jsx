@@ -4,7 +4,8 @@ import {
   CashierReportForm,
   InventoryForm,
   ReceivingForm,
-  WriteOffForm
+  WriteOffForm,
+  InventoryManagement
 } from './components/forms';
 import { NotificationScreen } from './components/common';
 import { apiService } from './services/apiService';
@@ -293,8 +294,8 @@ function App() {
     saveDraft,
     goToMenu,
     locations: LOCATIONS,
-    cashierLocations: CASHIER_LOCATIONS, // добавляем новое
-    reportLocations: REPORT_LOCATIONS, // добавляем новое
+    cashierLocations: CASHIER_LOCATIONS,
+    reportLocations: REPORT_LOCATIONS,
     apiService
   };
 
@@ -318,6 +319,8 @@ function App() {
       return <ReceivingForm {...formProps} locations={formProps.reportLocations}/>;
     case 'writeoff':
       return <WriteOffForm {...formProps} locations={formProps.reportLocations}/>;
+    case 'inventory-management':
+      return <InventoryManagement goToMenu={goToMenu}/>;
     default:
       return (
         <MainMenu

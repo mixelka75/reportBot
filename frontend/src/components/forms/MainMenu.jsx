@@ -1,14 +1,15 @@
 import React from 'react';
 import { DraftCard } from '../common/DraftCard';
+import { Settings } from 'lucide-react';
 
-// Main Menu Component - ИСПРАВЛЕН согласно монолитной версии
+// Main Menu Component - ДОБАВЛЕНО: кнопка управления товарами
 export const MainMenu = ({
   drafts,
   setCurrentForm,
   setCurrentDraftId,
   setValidationErrors,
   deleteDraft,
-  loadDraft // ДОБАВЛЕНО: loadDraft
+  loadDraft
 }) => {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -35,6 +36,30 @@ export const MainMenu = ({
             <hr className="my-6 border-gray-300" />
           </div>
         )}
+
+        {/* НОВОЕ: Кнопка управления товарами (только для админов) */}
+        <div className="mb-6">
+          <button
+            onClick={() => {
+              setCurrentDraftId(null);
+              setValidationErrors({});
+              setCurrentForm('inventory-management');
+            }}
+            className="w-full p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">⚙️</div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-lg">Управление товарами</h3>
+                  <p className="text-purple-100 text-sm">Настройка товаров для инвентаризации</p>
+                </div>
+              </div>
+              <div className="text-purple-100">→</div>
+            </div>
+          </button>
+          <hr className="my-6 border-gray-300" />
+        </div>
 
         {/* Новые отчеты */}
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Создать новый отчет:</h2>
