@@ -18,3 +18,7 @@ export const REPORT_LOCATIONS = [
   'Отчет - Абдулхакима Исмаилова 51',
   'Отчет - Гайдара Гаджиева 7Б',
 ];
+
+export const PEREMESHENIYA = [
+    'Перемещения'
+]

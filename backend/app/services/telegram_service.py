@@ -41,6 +41,8 @@ class TelegramService:
             "Отчет - Гагарина 48/1": settings.OTCHET_GAGARINA_48_TOPIC_ID,
             "Отчет - Абдулхакима Исмаилова 51": settings.OTCHET_ABDULHAMID_51_TOPIC_ID,
             "Отчет - Гайдара Гаджиева 7Б": settings.OTCHET_GAIDAR_7B_TOPIC_ID,
+
+            "Перемещения": settings.PEREMESHENIYA,
         }
 
         # Пробуем найти точное совпадение

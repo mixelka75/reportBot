@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     OTCHET_ABDULHAMID_51_TOPIC_ID: int = 0
     OTCHET_GAIDAR_7B_TOPIC_ID: int = 0
 
+    PEREMESHENIYA: int = 468
+
     # URL мини-приложения
     MINI_APP_URL: str = "https://your-domain.com/mini-app"
 

@@ -10,7 +10,7 @@ import {
 } from './components/forms';
 import { NotificationScreen } from './components/common';
 import { apiService } from './services/apiService';
-import { LOCATIONS, CASHIER_LOCATIONS, REPORT_LOCATIONS } from './constants';
+import {LOCATIONS, CASHIER_LOCATIONS, REPORT_LOCATIONS, PEREMESHENIYA} from './constants';
 import './App.css';
 
 // Функция для конвертации File в base64
@@ -297,6 +297,7 @@ function App() {
     locations: LOCATIONS,
     cashierLocations: CASHIER_LOCATIONS,
     reportLocations: REPORT_LOCATIONS,
+    peremesheniya: PEREMESHENIYA,
     apiService
   };
 
@@ -321,7 +322,7 @@ function App() {
     case 'writeoff':
       return <WriteOffForm {...formProps} locations={formProps.reportLocations}/>;
     case 'transfer':
-      return <TransferForm {...formProps} locations={formProps.reportLocations}/>;
+      return <TransferForm {...formProps} locations={formProps.peremesheniya}/>;
     case 'inventory-management':
       return <InventoryManagement goToMenu={goToMenu}/>;
     default:
