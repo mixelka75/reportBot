@@ -1,3 +1,4 @@
+# backend/app/services/telegram_service.py
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import aiohttp
@@ -145,8 +146,8 @@ class TelegramService:
 - Обязательное фото отчета
 
 📦 <b>Ежедневная инвентаризация</b>
-- Подсчет напитков
-- Учет еды и ингредиентов
+- Подсчет товаров по категориям
+- Динамическая система товаров
 - Контроль остатков
 
 📋 <b>Отчет приема товаров</b>
@@ -294,7 +295,8 @@ class TelegramService:
             print(f"❌ Ошибка получения информации о веб-хуке: {str(e)}")
             return {}
 
-    # Остальные методы (отправка отчетов) с обновленной поддержкой новых полей
+    # ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ ОТПРАВКИ ОТЧЕТОВ
+
     async def send_shift_report(self, report_data: Dict[str, Any], photo_path: str) -> bool:
         """Отправляет отчет смены в Telegram"""
         if not self.enabled:
@@ -322,7 +324,7 @@ class TelegramService:
             return False
 
     async def send_daily_inventory_report(self, report_data: Dict[str, Any]) -> bool:
-        """Отправляет отчет инвентаризации в Telegram"""
+        """Отправляет отчет старой инвентаризации в Telegram (для обратной совместимости)"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
             return False
@@ -348,8 +350,34 @@ class TelegramService:
             print(f"⚠️  Отчет инвентаризации создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def send_goods_report(self, report_data: Dict[str, Any],
-                                photos: List[Dict[str, Any]]) -> bool:
+    async def send_daily_inventory_v2_report(self, inventory_data: Dict[str, Any]) -> bool:
+        """НОВЫЙ МЕТОД: Отправляет отчет новой инвентаризации v2 в Telegram"""
+        if not self.enabled:
+            print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
+            return False
+
+        try:
+            topic_id = self.get_topic_id_by_location(inventory_data.get('location', ''))
+
+            # Форматируем сообщение для новой системы
+            message = self._format_daily_inventory_v2_message(inventory_data)
+
+            # Отправляем сообщение
+            success = await self._send_message(self.chat_id, message, topic_id)
+
+            if success:
+                print(f"✅ Отчет инвентаризации v2 отправлен в Telegram для локации: {inventory_data.get('location')}")
+            else:
+                print(
+                    f"⚠️  Отчет инвентаризации v2 создан, но не отправлен в Telegram для локации: {inventory_data.get('location')}")
+
+            return success
+
+        except Exception as e:
+            print(f"⚠️  Отчет инвентаризации v2 создан, но ошибка отправки в Telegram: {str(e)}")
+            return False
+
+    async def send_goods_report(self, report_data: Dict[str, Any], photos: List[Dict[str, Any]]) -> bool:
         """Отправляет отчет приема товаров в Telegram с фотографиями"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
@@ -396,103 +424,37 @@ class TelegramService:
             print(f"⚠️  Отчет приема товаров создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def _send_photo_with_caption_from_bytes(self, caption: str, photo_bytes: bytes, filename: str,
-                                                  topic_id: Optional[int] = None) -> bool:
-        """Отправляет фото из байтов с подписью"""
+    async def send_writeoff_transfer_report(self, report_data: Dict[str, Any]) -> bool:
+        """Отправляет акт списания/перемещения в Telegram"""
+        if not self.enabled:
+            print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
+            return False
+
         try:
-            url = f"{self.base_url}/sendPhoto"
+            topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
 
-            # Создаем FormData для multipart/form-data
-            data = aiohttp.FormData()
-            data.add_field('chat_id', str(self.chat_id))
-            data.add_field('caption', caption)
-            data.add_field('parse_mode', 'HTML')
+            # Форматируем сообщение
+            message = self._format_writeoff_transfer_message(report_data)
 
-            if topic_id:
-                data.add_field('message_thread_id', str(topic_id))
+            # Отправляем сообщение
+            success = await self._send_message(self.chat_id, message, topic_id)
 
-            # Добавляем файл из байтов
-            data.add_field('photo', io.BytesIO(photo_bytes), filename=filename or 'photo.jpg',
-                           content_type='image/jpeg')
+            if success:
+                print(f"✅ Акт списания/перемещения отправлен в Telegram для локации: {report_data.get('location')}")
+            else:
+                print(
+                    f"⚠️  Акт списания/перемещения создан, но не отправлен в Telegram для локации: {report_data.get('location')}")
 
-            # Устанавливаем таймаут для подключения
-            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            return success
 
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(url, data=data) as response:
-                    if response.status != 200:
-                        response_text = await response.text()
-                        print(f"Telegram API ошибка (фото из байтов): {response.status} - {response_text}")
-                    return response.status == 200
-
-        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
-            print(f"Ошибка сети при отправке фото из байтов в Telegram: {str(e)}")
-            return False
         except Exception as e:
-            print(f"Неожиданная ошибка при отправке фото из байтов в Telegram: {str(e)}")
+            print(f"⚠️  Акт списания/перемещения создан, но ошибка отправки в Telegram: {str(e)}")
             return False
 
-    async def _send_media_group_with_caption(self, caption: str, photos: List[Dict[str, Any]],
-                                             topic_id: Optional[int] = None) -> bool:
-        """Отправляет группу фотографий с подписью к первой фотографии"""
-        try:
-            url = f"{self.base_url}/sendMediaGroup"
-
-            # Создаем FormData для multipart/form-data
-            data = aiohttp.FormData()
-            data.add_field('chat_id', str(self.chat_id))
-
-            if topic_id:
-                data.add_field('message_thread_id', str(topic_id))
-
-            # Подготавливаем медиа массив
-            media = []
-            for i, photo in enumerate(photos):
-                photo_key = f"photo_{i}"
-
-                # Добавляем файл
-                data.add_field(
-                    photo_key,
-                    io.BytesIO(photo['content']),
-                    filename=photo.get('filename', f'photo_{i}.jpg'),
-                    content_type=photo.get('content_type', 'image/jpeg')
-                )
-
-                # Создаем объект медиа
-                media_item = {
-                    "type": "photo",
-                    "media": f"attach://{photo_key}"
-                }
-
-                # Добавляем подпись к первой фотографии
-                if i == 0:
-                    media_item["caption"] = caption
-                    media_item["parse_mode"] = "HTML"
-
-                media.append(media_item)
-
-            # Добавляем медиа массив как JSON
-            data.add_field('media', json.dumps(media))
-
-            # Устанавливаем таймаут для подключения
-            timeout = aiohttp.ClientTimeout(total=60, connect=15)
-
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(url, data=data) as response:
-                    if response.status != 200:
-                        response_text = await response.text()
-                        print(f"Telegram API ошибка (медиа группа): {response.status} - {response_text}")
-                    return response.status == 200
-
-        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
-            print(f"Ошибка сети при отправке медиа группы в Telegram: {str(e)}")
-            return False
-        except Exception as e:
-            print(f"Неожиданная ошибка при отправке медиа группы в Telegram: {str(e)}")
-            return False    
+    # МЕТОДЫ ФОРМАТИРОВАНИЯ СООБЩЕНИЙ
 
     def _format_shift_report_message(self, data: Dict[str, Any]) -> str:
-        """Форматирует сообщение отчета смены - ОБНОВЛЕНО с новыми полями"""
+        """Форматирует сообщение отчета смены"""
         shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
 
         message = f""" <b>ОТЧЁТ ЗАВЕРШЕНИЯ СМЕНЫ</b> {shift_emoji}
@@ -559,12 +521,12 @@ class TelegramService:
         else:
             message += f"✅ <b>Сходится: {surplus_shortage}₽</b>\n"
 
-        message += f"<b>КОММЕНТАРИИ: {data.get("comments") if data.get("comments") else 'Отсутствуют'}</b>"
+        message += f"<b>КОММЕНТАРИИ: {data.get('comments') if data.get('comments') else 'Отсутствуют'}</b>"
 
         return message
 
     def _format_daily_inventory_message(self, data: Dict[str, Any]) -> str:
-        """Форматирует сообщение инвентаризации"""
+        """Форматирует сообщение старой инвентаризации (для обратной совместимости)"""
         shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
 
         message = f"""📦 <b>ЕЖЕДНЕВНАЯ ИНВЕНТАРИЗАЦИЯ</b> {shift_emoji}
@@ -583,18 +545,80 @@ class TelegramService:
 - Энергетики: <b>{data.get('energetiky', 0)} шт</b>
 - Колд брю: <b>{data.get('kold_bru', 0)} шт</b>
 - Кинза напитки: <b>{data.get('kinza_napitky', 0)} шт</b>
-- Палпи: <b>{data.get('palli', 0)} шт</b>
+- Палли: <b>{data.get('palli', 0)} шт</b>
 
 🍽️ <b>ЕДА И ИНГРЕДИЕНТЫ:</b>
 - Барбекю дип: <b>{data.get('barbeku_dip', 0)} шт</b>
 - Булка на шаурму: <b>{data.get('bulka_na_shaurmu', 0)} шт</b>
 - Лаваш: <b>{data.get('lavash', 0)} шт</b>
 - Лепешки: <b>{data.get('lepeshki', 0)} шт</b>
-- Кетчуп'mornin дип: <b>{data.get('ketchup_dip', 0)} шт</b>
+- Кетчуп дип: <b>{data.get('ketchup_dip', 0)} шт</b>
 - Сырный соус дип: <b>{data.get('sirny_sous_dip', 0)} шт</b>
 - Курица жареная: <b>{data.get('kuriza_jareny', 0)} кг</b>
 - Курица сырая: <b>{data.get('kuriza_siraya', 0)} кг</b>
 """
+
+        return message
+
+    def _format_daily_inventory_v2_message(self, data: Dict[str, Any]) -> str:
+        """НОВЫЙ МЕТОД: Форматирует сообщение новой инвентаризации v2"""
+        shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
+
+        message = f"""📦 <b>ЕЖЕДНЕВНАЯ ИНВЕНТАРИЗАЦИЯ</b> {shift_emoji}
+
+📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
+📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
+🕐 <b>Время проведения:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+
+"""
+
+        # Получаем данные инвентаризации
+        inventory_data = data.get('inventory_data', [])
+
+        if not inventory_data:
+            message += "<b>Товары не указаны</b>"
+            return message
+
+        # Группируем товары по категориям
+        categories = {}
+
+        for item in inventory_data:
+            category = item.get('item_category', 'Прочее')
+            item_name = item.get('item_name', 'Неизвестный товар')
+            quantity = item.get('quantity', 0)
+            unit = item.get('item_unit', 'шт')
+
+            if category not in categories:
+                categories[category] = []
+
+            categories[category].append({
+                'name': item_name,
+                'quantity': quantity,
+                'unit': unit
+            })
+
+        # Эмодзи для категорий
+        category_emojis = {
+            'напитки': '🥤',
+            'еда': '🍽️',
+            'кухня': '🍳',
+            'бар': '🍹',
+            'упаковки': '📦',
+            'хоз': '🧽',
+            'хозтовары': '🧽',
+            'прочее': '📋'
+        }
+
+        # Добавляем товары по категориям
+        for category, items in categories.items():
+            emoji = category_emojis.get(category.lower(), '📋')
+            message += f"{emoji} <b>{category.upper()}:</b>\n"
+
+            for item in items:
+                message += f"• {item['name']}: <b>{item['quantity']} {item['unit']}</b>\n"
+
+            message += "\n"
 
         return message
 
@@ -642,6 +666,44 @@ class TelegramService:
 
         return message
 
+    def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
+        """Форматирует сообщение акта списания/перемещения"""
+        message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
+
+📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
+📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
+📆 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+
+"""
+
+        # Списания
+        writeoffs = data.get('writeoffs', [])
+        if writeoffs:
+            message += "🗑 <b>СПИСАНИЕ:</b>\n"
+            for item in writeoffs:
+                name = item.get('name', 'Не указано')
+                weight = int(item.get('weight', 0))
+                unit = item.get('unit', 'кг')
+                reason = item.get('reason', 'Не указано')
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+            message += "\n"
+
+        # Перемещения
+        transfers = data.get('transfers', [])
+        if transfers:
+            message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
+            for item in transfers:
+                name = item.get('name', 'Не указано')
+                weight = int(item.get('weight', 0))
+                unit = item.get('unit', 'кг')
+                reason = item.get('reason', 'Не указано')
+                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+
+        return message
+
+    # ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ОТПРАВКИ
+
     async def _send_message(self, chat_id: int, text: str, topic_id: Optional[int] = None) -> bool:
         """Отправляет текстовое сообщение"""
         try:
@@ -656,7 +718,6 @@ class TelegramService:
             if topic_id:
                 data['message_thread_id'] = topic_id
 
-            # Устанавливаем таймаут для подключения
             timeout = aiohttp.ClientTimeout(total=10, connect=5)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -696,7 +757,6 @@ class TelegramService:
             with open(photo_path, 'rb') as photo_file:
                 data.add_field('photo', photo_file, filename='report.jpg', content_type='image/jpeg')
 
-                # Устанавливаем таймаут для подключения
                 timeout = aiohttp.ClientTimeout(total=30, connect=10)
 
                 async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -716,68 +776,98 @@ class TelegramService:
             print(f"Неожиданная ошибка при отправке фото в Telegram: {str(e)}")
             return False
 
-    async def send_writeoff_transfer_report(self, report_data: Dict[str, Any]) -> bool:
-        """Отправляет акт списания/перемещения в Telegram"""
-        if not self.enabled:
-            print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
-            return False
-
+    async def _send_photo_with_caption_from_bytes(self, caption: str, photo_bytes: bytes, filename: str,
+                                                  topic_id: Optional[int] = None) -> bool:
+        """Отправляет фото из байтов с подписью"""
         try:
-            topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
+            url = f"{self.base_url}/sendPhoto"
 
-            # Форматируем сообщение
-            message = self._format_writeoff_transfer_message(report_data)
+            # Создаем FormData для multipart/form-data
+            data = aiohttp.FormData()
+            data.add_field('chat_id', str(self.chat_id))
+            data.add_field('caption', caption)
+            data.add_field('parse_mode', 'HTML')
 
-            # Отправляем сообщение
-            success = await self._send_message(self.chat_id, message, topic_id)
+            if topic_id:
+                data.add_field('message_thread_id', str(topic_id))
 
-            if success:
-                print(f"✅ Акт списания/перемещения отправлен в Telegram для локации: {report_data.get('location')}")
-            else:
-                print(
-                    f"⚠️  Акт списания/перемещения создан, но не отправлен в Telegram для локации: {report_data.get('location')}")
+            # Добавляем файл из байтов
+            data.add_field('photo', io.BytesIO(photo_bytes), filename=filename or 'photo.jpg',
+                           content_type='image/jpeg')
 
-            return success
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
 
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"Telegram API ошибка (фото из байтов): {response.status} - {response_text}")
+                    return response.status == 200
+
+        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
+            print(f"Ошибка сети при отправке фото из байтов в Telegram: {str(e)}")
+            return False
         except Exception as e:
-            print(f"⚠️  Акт списания/перемещения создан, но ошибка отправки в Telegram: {str(e)}")
+            print(f"Неожиданная ошибка при отправке фото из байтов в Telegram: {str(e)}")
             return False
 
-    def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
-        """Форматирует сообщение акта списания/перемещения"""
-        message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
+    async def _send_media_group_with_caption(self, caption: str, photos: List[Dict[str, Any]],
+                                             topic_id: Optional[int] = None) -> bool:
+        """Отправляет группу фотографий с подписью к первой фотографии"""
+        try:
+            url = f"{self.base_url}/sendMediaGroup"
 
-📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
-📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-📆 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+            # Создаем FormData для multipart/form-data
+            data = aiohttp.FormData()
+            data.add_field('chat_id', str(self.chat_id))
 
-"""
+            if topic_id:
+                data.add_field('message_thread_id', str(topic_id))
 
-        # Списания
-        writeoffs = data.get('writeoffs', [])
-        if writeoffs:
-            message += "🗑 <b>СПИСАНИЕ:</b>\n"
-            for item in writeoffs:
-                name = item.get('name', 'Не указано')
-                weight = int(item.get('weight', 0))
-                unit = item.get('unit', 'кг')
-                reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
-            message += "\n"
+            # Подготавливаем медиа массив
+            media = []
+            for i, photo in enumerate(photos):
+                photo_key = f"photo_{i}"
 
-        # Перемещения
-        transfers = data.get('transfers', [])
-        if transfers:
-            message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
-            for item in transfers:
-                name = item.get('name', 'Не указано')
-                weight = int(item.get('weight', 0))
-                unit = item.get('unit', 'кг')
-                reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+                # Добавляем файл
+                data.add_field(
+                    photo_key,
+                    io.BytesIO(photo['content']),
+                    filename=photo.get('filename', f'photo_{i}.jpg'),
+                    content_type=photo.get('content_type', 'image/jpeg')
+                )
 
-        return message
+                # Создаем объект медиа
+                media_item = {
+                    "type": "photo",
+                    "media": f"attach://{photo_key}"
+                }
+
+                # Добавляем подпись к первой фотографии
+                if i == 0:
+                    media_item["caption"] = caption
+                    media_item["parse_mode"] = "HTML"
+
+                media.append(media_item)
+
+            # Добавляем медиа массив как JSON
+            data.add_field('media', json.dumps(media))
+
+            timeout = aiohttp.ClientTimeout(total=60, connect=15)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, data=data) as response:
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"Telegram API ошибка (медиа группа): {response.status} - {response_text}")
+                    return response.status == 200
+
+        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
+            print(f"Ошибка сети при отправке медиа группы в Telegram: {str(e)}")
+            return False
+        except Exception as e:
+            print(f"Неожиданная ошибка при отправке медиа группы в Telegram: {str(e)}")
+            return False
 
     async def send_photos_to_location(self, location: str, photos: List[Dict[str, Any]],
                                       message: Optional[str] = None) -> bool:
