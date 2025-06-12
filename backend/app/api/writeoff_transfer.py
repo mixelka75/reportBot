@@ -69,7 +69,7 @@ date
         ),
         shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
-
+        writeoff_or_transfer: str = Form(...),
         db: AsyncSession = Depends(get_db),
 ) -> WriteoffTransferResponse:
     """
@@ -177,7 +177,7 @@ date
             shift_type=shift_type
         )
 
-        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data)
+        return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data, writeoff_or_transfer)
 
     except HTTPException:
         raise

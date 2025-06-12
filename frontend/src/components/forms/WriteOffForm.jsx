@@ -26,6 +26,7 @@ export const WriteOffForm = ({
     location: '',
     shift: '',
     cashierName: '',
+    writeoff_or_transfer: 'Списания',
     date: getCurrentMSKTime(),
     writeOffs: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
   });
@@ -123,6 +124,7 @@ export const WriteOffForm = ({
       apiFormData.append('location', formData.location);
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
+      apiFormData.append('writeoff_or_transfer', formData.writeoff_or_transfer);
 
       // Списания
       const writeoffs = formData.writeOffs

@@ -20,6 +20,7 @@ class WriteoffTransferCRUD:
             self,
             db: AsyncSession,
             report_data: WriteoffTransferCreate,
+            writeoff_or_transfer: str
     ) -> WriteoffTransfer:
         """
         Создает акт списания/перемещения.
@@ -62,7 +63,7 @@ class WriteoffTransferCRUD:
 
             # Запускаем отправку в Telegram в фоне
             if self.telegram_service:
-                asyncio.create_task(self._send_to_telegram_background(db_report.id))
+                asyncio.create_task(self._send_to_telegram_background(db_report.id, writeoff_or_transfer))
 
             return db_report
 
@@ -75,7 +76,7 @@ class WriteoffTransferCRUD:
             await db.rollback()
             raise e
 
-    async def _send_to_telegram_background(self, report_id: int):
+    async def _send_to_telegram_background(self, report_id: int, writeoff_or_transfer: str):
         """
         Фоновая отправка акта в Telegram.
         """
@@ -104,6 +105,7 @@ class WriteoffTransferCRUD:
                         'shift_type': db_report.shift_type,
                         'writeoffs': db_report.writeoffs,
                         'transfers': db_report.transfers,
+                        "writeoff_or_transfer": writeoff_or_transfer
                     }
 
                     # Отправляем в Telegram (с таймаутом)

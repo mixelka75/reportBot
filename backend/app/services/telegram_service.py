@@ -670,7 +670,7 @@ class TelegramService:
 
     def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение акта списания/перемещения"""
-        message = f"""📋 <b>АКТ СПИСАНИЯ / ПЕРЕМЕЩЕНИЯ</b>
+        message = f"""📋 <b>АКТ {data.get('writeoff_or_transfer')}</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}

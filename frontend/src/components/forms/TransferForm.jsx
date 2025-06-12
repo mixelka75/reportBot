@@ -26,6 +26,7 @@ export const TransferForm = ({
     location: '',
     shift: '',
     cashierName: '',
+    writeoff_or_transfer: 'Перемещения',
     date: getCurrentMSKTime(),
     transfers: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
   });
@@ -123,6 +124,8 @@ export const TransferForm = ({
       apiFormData.append('location', formData.location);
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
+      apiFormData.append('writeoff_or_transfer', formData.writeoff_or_transfer);
+
 
       // Отправляем только перемещения, списания будут пустыми
       const writeoffs = [];
