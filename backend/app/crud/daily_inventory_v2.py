@@ -163,7 +163,6 @@ class DailyInventoryV2CRUD:
                         detailed_data.append({
                             "item_id": item_id,
                             "item_name": item.name,
-                            "item_category": item.category,
                             "item_unit": item.unit,
                             "quantity": entry["quantity"]
                         })
@@ -171,7 +170,6 @@ class DailyInventoryV2CRUD:
                         detailed_data.append({
                             "item_id": item_id,
                             "item_name": "Товар не найден",
-                            "item_category": "unknown",
                             "item_unit": "шт",
                             "quantity": entry["quantity"]
                         })
