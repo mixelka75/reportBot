@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 
 const useInventoryItems = () => {
   const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -35,25 +34,6 @@ const useInventoryItems = () => {
       throw error;
     } finally {
       setLoading(false);
-    }
-  }, [API_BASE_URL]);
-
-  // Получить категории
-  const fetchCategories = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/inventory-management/categories`);
-
-      if (!response.ok) {
-        throw new Error(`Ошибка сервера: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setCategories(data);
-      return data;
-    } catch (error) {
-      console.error('Ошибка получения категорий:', error);
-      setCategories([]);
-      throw error;
     }
   }, [API_BASE_URL]);
 
@@ -147,16 +127,13 @@ const useInventoryItems = () => {
 
   useEffect(() => {
     fetchItems();
-    fetchCategories();
-  }, [fetchItems, fetchCategories]);
+  }, [fetchItems]);
 
   return {
     items,
-    categories,
     loading,
     error,
     fetchItems,
-    fetchCategories,
     createItem,
     updateItem,
     deleteItem,

@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Home, Plus, Edit3, Trash2, Search, Filter, Package, Save, X, AlertCircle } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Home, Plus, Edit3, Trash2, Search, Package, Save, X, AlertCircle } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ConfirmationModal } from '../common/ConfirmationModal';
 import useInventoryItems from '../../hooks/useInventoryItems';
@@ -7,7 +7,6 @@ import useInventoryItems from '../../hooks/useInventoryItems';
 export const InventoryManagement = ({ goToMenu }) => {
   const {
     items,
-    categories,
     loading,
     error,
     createItem,
@@ -21,40 +20,45 @@ export const InventoryManagement = ({ goToMenu }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
   const [filterActive, setFilterActive] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
-    category: '',
     unit: 'шт',
-    description: '',
-    is_active: true,
-    sort_order: 0
+    is_active: true
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  // Ref для формы редактирования
+  const formRef = useRef(null);
+
   // Фильтрация товаров
   const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !filterCategory || item.category === filterCategory;
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesActive = filterActive === 'all' ||
                          (filterActive === 'active' && item.is_active) ||
                          (filterActive === 'inactive' && !item.is_active);
 
-    return matchesSearch && matchesCategory && matchesActive;
+    return matchesSearch && matchesActive;
   });
+
+  // Функция для плавной прокрутки к элементу
+  const scrollToForm = useCallback(() => {
+    if (formRef.current) {
+      formRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
+  }, []);
 
   // Сброс формы
   const resetForm = useCallback(() => {
     setFormData({
       name: '',
-      category: '',
       unit: 'шт',
-      description: '',
-      is_active: true,
-      sort_order: 0
+      is_active: true
     });
     setFormErrors({});
     setEditingItem(null);
@@ -69,16 +73,8 @@ export const InventoryManagement = ({ goToMenu }) => {
       errors.name = 'Название товара обязательно';
     }
 
-    if (!formData.category.trim()) {
-      errors.category = 'Категория обязательна';
-    }
-
     if (!formData.unit.trim()) {
       errors.unit = 'Единица измерения обязательна';
-    }
-
-    if (formData.sort_order < 0) {
-      errors.sort_order = 'Порядок сортировки не может быть отрицательным';
     }
 
     setFormErrors(errors);
@@ -99,10 +95,7 @@ export const InventoryManagement = ({ goToMenu }) => {
       const submitData = {
         ...formData,
         name: formData.name.trim(),
-        category: formData.category.trim(),
-        unit: formData.unit.trim(),
-        description: formData.description.trim(),
-        sort_order: parseInt(formData.sort_order) || 0
+        unit: formData.unit.trim()
       };
 
       if (editingItem) {
@@ -119,20 +112,31 @@ export const InventoryManagement = ({ goToMenu }) => {
     }
   }, [formData, editingItem, validateForm, createItem, updateItem, resetForm]);
 
-  // Начать редактирование
+  // Начать редактирование с прокруткой к форме
   const handleEdit = useCallback((item) => {
     setEditingItem(item);
     setFormData({
       name: item.name,
-      category: item.category,
       unit: item.unit,
-      description: item.description || '',
-      is_active: item.is_active,
-      sort_order: item.sort_order
+      is_active: item.is_active
     });
     setFormErrors({});
     setShowForm(true);
-  }, []);
+
+    // Прокручиваем к форме с небольшой задержкой для обновления DOM
+    setTimeout(() => {
+      scrollToForm();
+    }, 100);
+  }, [scrollToForm]);
+
+  // Показать форму добавления нового товара с прокруткой
+  const handleAddNew = useCallback(() => {
+    setShowForm(true);
+    // Прокручиваем к форме с небольшой задержкой для обновления DOM
+    setTimeout(() => {
+      scrollToForm();
+    }, 100);
+  }, [scrollToForm]);
 
   // Подтверждение удаления
   const handleDeleteClick = useCallback((item) => {
@@ -184,7 +188,7 @@ export const InventoryManagement = ({ goToMenu }) => {
               <p className="text-sm text-gray-600">Настройка товаров для ежедневной инвентаризации</p>
             </div>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={handleAddNew}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
             >
               <Plus size={18} />
@@ -204,7 +208,7 @@ export const InventoryManagement = ({ goToMenu }) => {
 
           {/* Фильтры и поиск */}
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
@@ -217,17 +221,6 @@ export const InventoryManagement = ({ goToMenu }) => {
               </div>
 
               <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Все категории</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-
-              <select
                 value={filterActive}
                 onChange={(e) => setFilterActive(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
@@ -238,7 +231,7 @@ export const InventoryManagement = ({ goToMenu }) => {
               </select>
 
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Filter size={16} />
+                <Package size={16} />
                 <span>Найдено: {filteredItems.length}</span>
               </div>
             </div>
@@ -246,10 +239,13 @@ export const InventoryManagement = ({ goToMenu }) => {
 
           {/* Форма добавления/редактирования */}
           {showForm && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
+            <div
+              ref={formRef}
+              className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm scroll-mt-4"
+            >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  {editingItem ? 'Редактировать товар' : 'Новый товар'}
+                  {editingItem ? `Редактировать товар: ${editingItem.name}` : 'Новый товар'}
                 </h3>
                 <button
                   onClick={resetForm}
@@ -285,37 +281,10 @@ export const InventoryManagement = ({ goToMenu }) => {
                         : 'border-gray-300 focus:border-blue-500'
                     }`}
                     hasError={!!formErrors.name}
+                    autoFocus={showForm} // Автофокус при показе формы
                   />
                   {formErrors.name && (
                     <p className="text-xs text-red-600 mt-1">{formErrors.name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Категория *
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => updateFormField('category', e.target.value)}
-                    disabled={submitLoading}
-                    className={`w-full p-3 border rounded-lg focus:outline-none transition-colors ${
-                      formErrors.category 
-                        ? 'border-red-400 bg-red-50' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                  >
-                    <option value="">Выберите категорию</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                    <option value="напитки">напитки</option>
-                    <option value="еда">еда</option>
-                    <option value="упаковки">упаковки</option>
-                    <option value="хозтовары">хозтовары</option>
-                  </select>
-                  {formErrors.category && (
-                    <p className="text-xs text-red-600 mt-1">{formErrors.category}</p>
                   )}
                 </div>
 
@@ -339,43 +308,6 @@ export const InventoryManagement = ({ goToMenu }) => {
                   {formErrors.unit && (
                     <p className="text-xs text-red-600 mt-1">{formErrors.unit}</p>
                   )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Порядок сортировки
-                  </label>
-                  <MemoizedInput
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={formData.sort_order}
-                    onChange={(e) => updateFormField('sort_order', e.target.value)}
-                    disabled={submitLoading}
-                    className={`w-full p-3 border rounded-lg focus:outline-none transition-colors ${
-                      formErrors.sort_order 
-                        ? 'border-red-400 bg-red-50' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    hasError={!!formErrors.sort_order}
-                  />
-                  {formErrors.sort_order && (
-                    <p className="text-xs text-red-600 mt-1">{formErrors.sort_order}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Описание
-                  </label>
-                  <textarea
-                    placeholder="Дополнительная информация о товаре..."
-                    value={formData.description}
-                    onChange={(e) => updateFormField('description', e.target.value)}
-                    disabled={submitLoading}
-                    rows={3}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-none"
-                  />
                 </div>
 
                 <div className="md:col-span-2">
@@ -430,7 +362,7 @@ export const InventoryManagement = ({ goToMenu }) => {
               <div className="p-8 text-center">
                 <Package size={48} className="mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-600">
-                  {searchTerm || filterCategory || filterActive !== 'all'
+                  {searchTerm || filterActive !== 'all'
                     ? 'Товары не найдены по заданным фильтрам'
                     : 'Пока нет товаров. Добавьте первый товар!'
                   }
@@ -451,32 +383,29 @@ export const InventoryManagement = ({ goToMenu }) => {
                           }`}>
                             {item.is_active ? 'Активный' : 'Неактивный'}
                           </span>
+                          {editingItem && editingItem.id === item.id && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                              Редактируется
+                            </span>
+                          )}
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                          <div>
-                            <span className="font-medium">Категория:</span>
-                            <br />
-                            {item.category}
-                          </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
                           <div>
                             <span className="font-medium">Единица:</span>
                             <br />
                             {item.unit}
                           </div>
                           <div>
-                            <span className="font-medium">Порядок:</span>
-                            <br />
-                            {item.sort_order}
-                          </div>
-                          <div>
                             <span className="font-medium">ID:</span>
                             <br />
                             {item.id}
                           </div>
+                          <div>
+                            <span className="font-medium">Создан:</span>
+                            <br />
+                            {new Date(item.created_at).toLocaleDateString('ru-RU')}
+                          </div>
                         </div>
-                        {item.description && (
-                          <p className="mt-2 text-sm text-gray-600">{item.description}</p>
-                        )}
                       </div>
                       <div className="flex gap-2 ml-4">
                         <button
@@ -512,7 +441,7 @@ export const InventoryManagement = ({ goToMenu }) => {
         }}
         onConfirm={handleDelete}
         title="Удалить товар"
-        message={`Вы уверены, что хотите удалить товар "${itemToDelete?.name}"? Товар станет неактивным и не будет доступен для новых инвентаризаций.`}
+        message={`Вы уверены, что хотите удалить товар "${itemToDelete?.name}"? Товар станет неактивным и не будет доступен для инвентаризации.`}
         confirmText="Удалить"
         cancelText="Отмена"
         type="danger"

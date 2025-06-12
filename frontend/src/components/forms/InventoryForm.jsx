@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapPin, Clock, Send, RefreshCw, Home, Package, Search, Filter } from 'lucide-react';
+import { MapPin, Clock, Send, RefreshCw, Home, Package, Search } from 'lucide-react';
 import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
@@ -27,17 +27,16 @@ export const InventoryForm = ({
     shift: '',
     date: getCurrentMSKTime(),
     conductor: '',
-    inventory_data: [] // НОВОЕ: используем новую структуру данных
+    inventory_data: []
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
-  const [availableItems, setAvailableItems] = useState([]); // НОВОЕ: список товаров из API
-  const [itemsLoading, setItemsLoading] = useState(true); // НОВОЕ: состояние загрузки товаров
-  const [searchTerm, setSearchTerm] = useState(''); // НОВОЕ: поиск товаров
-  const [filterCategory, setFilterCategory] = useState(''); // НОВОЕ: фильтр по категории
+  const [availableItems, setAvailableItems] = useState([]);
+  const [itemsLoading, setItemsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
 
-  // НОВОЕ: загрузка товаров из API
+  // Загрузка товаров из API
   useEffect(() => {
     const loadItems = async () => {
       setItemsLoading(true);
@@ -103,7 +102,7 @@ export const InventoryForm = ({
     }
   }, [validationErrors, setValidationErrors]);
 
-  // НОВОЕ: обработка изменения количества товара
+  // Обработка изменения количества товара
   const handleQuantityChange = useCallback((itemId, quantity) => {
     const numQuantity = Math.max(0, parseInt(quantity) || 0);
 
@@ -136,26 +135,12 @@ export const InventoryForm = ({
     }));
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
 
-  // НОВОЕ: фильтрация товаров
-  const filteredItems = availableItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !filterCategory || item.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Фильтрация товаров
+  const filteredItems = availableItems.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // НОВОЕ: группировка товаров по категориям
-  const itemsByCategory = filteredItems.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {});
-
-  // НОВОЕ: получение списка категорий
-  const categories = [...new Set(availableItems.map(item => item.category))];
-
-  // НОВОЕ: получение количества для товара
+  // Получение количества для товара
   const getQuantityForItem = useCallback((itemId) => {
     const entry = formData.inventory_data.find(item => item.item_id === itemId);
     return entry ? entry.quantity : 0;
@@ -169,7 +154,7 @@ export const InventoryForm = ({
     if (!formData.shift) errors.shift = 'Выберите смену';
     if (!formData.conductor.trim()) errors.conductor = 'Введите имя сотрудника';
 
-    // НОВОЕ: проверяем что есть хотя бы один товар с количеством > 0
+    // Проверяем что есть хотя бы один товар с количеством > 0
     const hasItems = formData.inventory_data.some(item => item.quantity > 0);
     if (!hasItems) {
       errors.items = 'Укажите количество хотя бы для одного товара';
@@ -183,7 +168,7 @@ export const InventoryForm = ({
     setIsLoading(true);
 
     try {
-      // НОВОЕ: используем новый API v2
+      // Используем новый API v2
       const submitData = {
         location: formData.location,
         shift_type: formData.shift === 'Утро' ? 'morning' : 'night',
@@ -193,7 +178,7 @@ export const InventoryForm = ({
 
       const result = await apiService.createInventoryReportV2(submitData);
       clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
-      showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в системе');
+      showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в базе данных');
 
     } catch (error) {
       console.error('❌ Ошибка отправки отчета:', error);
@@ -301,7 +286,7 @@ export const InventoryForm = ({
             />
           </div>
 
-          {/* НОВОЕ: Загрузка товаров */}
+          {/* Загрузка товаров */}
           {itemsLoading ? (
             <div className="mb-6 p-8 text-center bg-white border border-gray-200 rounded-lg">
               <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -315,39 +300,24 @@ export const InventoryForm = ({
             </div>
           ) : (
             <>
-              {/* НОВОЕ: Поиск и фильтры */}
+              {/* Поиск */}
               <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="relative">
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Поиск товаров..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="">Все категории</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Filter size={16} />
-                    <span>Показано товаров: {filteredItems.length} из {availableItems.length}</span>
-                  </div>
+                <div className="relative">
+                  <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Поиск товаров..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  Показано товаров: {filteredItems.length} из {availableItems.length}
                 </div>
               </div>
 
-              {/* НОВОЕ: Товары по категориям */}
+              {/* Товары единым списком */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-blue-600 mb-3">📋 Товары:</h3>
                 {validationErrors.items && (
@@ -356,52 +326,44 @@ export const InventoryForm = ({
                   </div>
                 )}
 
-                {Object.keys(itemsByCategory).length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <div className="p-6 text-center bg-white border border-gray-200 rounded-lg">
-                    <p className="text-gray-600">Товары не найдены по заданным фильтрам</p>
+                    <p className="text-gray-600">Товары не найдены по заданному поиску</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {Object.entries(itemsByCategory).map(([category, categoryItems]) => (
-                      <div key={category} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-3 capitalize">
-                          {category} ({categoryItems.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {categoryItems.map(item => {
-                            const quantity = getQuantityForItem(item.id);
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="space-y-3">
+                      {filteredItems.map(item => {
+                        const quantity = getQuantityForItem(item.id);
 
-                            return (
-                              <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {item.name}
-                                  </p>
-                                  <p className="text-xs text-gray-600">
-                                    ID: {item.id} • {item.unit}
-                                    {item.description && ` • ${item.description}`}
-                                  </p>
-                                </div>
-                                <div className="flex-shrink-0">
-                                  <MemoizedInput
-                                    type="text"
-                                    value={quantity}
-                                    onChange={(e) => handleNumberInput(e, (newValue) =>
-                                      handleQuantityChange(item.id, newValue)
-                                    )}
-                                    disabled={isLoading}
-                                    className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
-                                    placeholder="0"
-                                    name={`item-${item.id}`}
-                                    id={`item-${item.id}`}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                        return (
+                          <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                ID: {item.id} • {item.unit}
+                              </p>
+                            </div>
+                            <div className="flex-shrink-0">
+                              <MemoizedInput
+                                type="text"
+                                value={quantity}
+                                onChange={(e) => handleNumberInput(e, (newValue) =>
+                                  handleQuantityChange(item.id, newValue)
+                                )}
+                                disabled={isLoading}
+                                className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
+                                placeholder="0"
+                                name={`item-${item.id}`}
+                                id={`item-${item.id}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -437,10 +399,10 @@ export const InventoryForm = ({
             </button>
           </div>
 
-          {/* НОВОЕ: Информация о системе */}
+          {/* Информация о системе */}
           <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700">
-              ✨ <strong>Новая система:</strong> Товары теперь загружаются из базы данных.
+              ✨ <strong>Упрощенная система:</strong> Товары отображаются единым списком без категорий.
               Список товаров можно настроить через "Управление товарами" в главном меню.
             </p>
           </div>

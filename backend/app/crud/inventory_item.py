@@ -1,10 +1,9 @@
-# backend/app/crud/inventory_item.py
+from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from fastapi import HTTPException, status
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from fastapi import HTTPException, status
 
 from app.models.inventory_item import InventoryItem
 from app.schemas.inventory_item import InventoryItemCreate, InventoryItemUpdate
@@ -22,11 +21,8 @@ class InventoryItemCRUD:
         try:
             db_item = InventoryItem(
                 name=item_data.name,
-                category=item_data.category,
                 unit=item_data.unit,
-                description=item_data.description,
-                is_active=item_data.is_active,
-                sort_order=item_data.sort_order
+                is_active=item_data.is_active
             )
 
             db.add(db_item)
@@ -65,7 +61,6 @@ class InventoryItemCRUD:
     async def get_items(
             self,
             db: AsyncSession,
-            category: Optional[str] = None,
             is_active: Optional[bool] = None,
             skip: int = 0,
             limit: int = 100
@@ -77,18 +72,12 @@ class InventoryItemCRUD:
             count_query = select(func.count(InventoryItem.id))
 
             # Применяем фильтры
-            filters = []
-            if category:
-                filters.append(InventoryItem.category == category)
             if is_active is not None:
-                filters.append(InventoryItem.is_active == is_active)
-
-            if filters:
-                query = query.where(and_(*filters))
-                count_query = count_query.where(and_(*filters))
+                query = query.where(InventoryItem.is_active == is_active)
+                count_query = count_query.where(InventoryItem.is_active == is_active)
 
             # Сортировка и пагинация
-            query = query.order_by(InventoryItem.sort_order, InventoryItem.name)
+            query = query.order_by(InventoryItem.name)
             query = query.offset(skip).limit(limit)
 
             # Выполняем запросы
@@ -128,7 +117,6 @@ class InventoryItemCRUD:
                 setattr(db_item, field, value)
 
             db_item.updated_at = datetime.utcnow()
-
             await db.commit()
             await db.refresh(db_item)
 
@@ -175,20 +163,6 @@ class InventoryItemCRUD:
                 detail=f"Ошибка удаления товара: {str(e)}"
             )
 
-    async def get_categories(self, db: AsyncSession) -> List[str]:
-        """Получить список всех категорий"""
-        try:
-            result = await db.execute(
-                select(InventoryItem.category)
-                .where(InventoryItem.is_active == True)
-                .distinct()
-                .order_by(InventoryItem.category)
-            )
-            categories = result.scalars().all()
-            return list(categories)
 
-        except SQLAlchemyError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Ошибка получения категорий: {str(e)}"
-            )
+# Экземпляр для использования
+inventory_crud = InventoryItemCRUD()
