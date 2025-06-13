@@ -28,7 +28,7 @@ export const CashierReportForm = ({
     date: getCurrentMSKTime(),
     cashierName: '',
     incomes: Array(2).fill({ amount: '', comment: '' }),
-    expenses: Array(2).fill({ name: '', amount: '' }),
+    expenses: Array(10).fill({ name: '', amount: '' }),
     iikoData: {
       totalRevenue: '',
       returns: '',
