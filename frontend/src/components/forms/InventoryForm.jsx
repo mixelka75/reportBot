@@ -25,8 +25,9 @@ export const InventoryForm = ({
   const [formData, setFormData] = useState({
     location: '',
     shift: '',
-    date: getCurrentMSKTime(),
     conductor: '',
+    report_date: new Date().toISOString().split('T')[0], // Текущая дата в формате YYYY-MM-DD
+    report_time: new Date().toTimeString().slice(0,5),
     inventory_data: []
   });
 
@@ -80,7 +81,7 @@ export const InventoryForm = ({
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
-    if (data.location || data.shift || data.conductor ||
+    if (data.location || data.shift || data.conductor || data.report_date || data.report_time ||
         (data.inventory_data && data.inventory_data.some(item => item.quantity > 0))) {
       await saveDraft('inventory', data);
     }
@@ -128,6 +129,9 @@ export const InventoryForm = ({
       location: '',
       shift: '',
       conductor: '',
+      // ДОБАВИТЬ СБРОС ДАТЫ И ВРЕМЕНИ:
+      report_date: new Date().toISOString().split('T')[0],
+      report_time: new Date().toTimeString().slice(0,5),
       inventory_data: prev.inventory_data.map(entry => ({
         ...entry,
         quantity: 0
@@ -154,6 +158,10 @@ export const InventoryForm = ({
     if (!formData.shift) errors.shift = 'Выберите смену';
     if (!formData.conductor.trim()) errors.conductor = 'Введите имя сотрудника';
 
+    // ДОБАВИТЬ ВАЛИДАЦИЮ ДАТЫ И ВРЕМЕНИ:
+    if (!formData.report_date) errors.report_date = 'Выберите дату отчета';
+    if (!formData.report_time) errors.report_time = 'Выберите время отчета';
+
     // Проверяем что есть хотя бы один товар с количеством > 0
     const hasItems = formData.inventory_data.some(item => item.quantity > 0);
     if (!hasItems) {
@@ -173,11 +181,14 @@ export const InventoryForm = ({
         location: formData.location,
         shift_type: formData.shift === 'Утро' ? 'morning' : 'night',
         cashier_name: formData.conductor,
-        inventory_data: formData.inventory_data.filter(item => item.quantity > 0) // Отправляем только товары с количеством > 0
+        // ДОБАВИТЬ ДАТУ И ВРЕМЯ:
+        report_date: formData.report_date,
+        report_time: formData.report_time,
+        inventory_data: formData.inventory_data.filter(item => item.quantity > 0)
       };
 
       const result = await apiService.createInventoryReportV2(submitData);
-      clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
+      clearCurrentDraft();
       showNotification('success', 'Инвентаризация отправлена!', 'Отчет ежедневной инвентаризации успешно отправлен и сохранен в базе данных');
 
     } catch (error) {
@@ -261,12 +272,30 @@ export const InventoryForm = ({
 
           {/* Date */}
           <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📆 Дата (автоматически дата и время по мск)</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата отчета:*</label>
             <input
-              type="text"
-              value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+              type="date"
+              value={formData.report_date}
+              onChange={(e) => handleInputChange('report_date', e.target.value)}
+              disabled={isLoading}
+              className={`w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors ${
+                validationErrors.report_date ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="text-sm font-medium block mb-2 text-gray-700">⏰ Время отчета:*</label>
+            <input
+              type="time"
+              value={formData.report_time}
+              onChange={(e) => handleInputChange('report_time', e.target.value)}
+              disabled={isLoading}
+              className={`w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors ${
+                validationErrors.report_time ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              required
             />
           </div>
 

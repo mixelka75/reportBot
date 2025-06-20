@@ -1,6 +1,6 @@
-from datetime import datetime
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field
+from datetime import datetime, date, time
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field, validator
 
 
 class InventoryDataEntry(BaseModel):
@@ -22,14 +22,28 @@ class DailyInventoryV2Create(BaseModel):
     location: str = Field(..., min_length=1, max_length=255, description="Название локации")
     shift_type: str = Field(..., pattern=r"^(morning|night)$", description="Тип смены")
     cashier_name: str = Field(..., min_length=1, max_length=255, description="ФИО кассира")
+
+    # ДОБАВИТЬ ЭТИ ПОЛЯ ДЛЯ ДАТЫ И ВРЕМЕНИ
+    report_date: date = Field(..., description="Дата отчета")
+    report_time: time = Field(..., description="Время отчета")
+
     inventory_data: List[InventoryDataEntry] = Field(..., description="Данные инвентаризации")
+
+    @validator('report_time')
+    def validate_time_format(cls, v):
+        """Валидация времени"""
+        if not isinstance(v, time):
+            raise ValueError('Время должно быть в формате HH:MM')
+        return v
 
     class Config:
         json_schema_extra = {
             "example": {
                 "location": "Кафе Центральный",
-                "shift_type": "morning", 
+                "shift_type": "morning",
                 "cashier_name": "Иванов Иван Иванович",
+                "report_date": "2025-06-20",
+                "report_time": "14:30:00",
                 "inventory_data": [
                     {"item_id": 1, "quantity": 10},
                     {"item_id": 2, "quantity": 5}

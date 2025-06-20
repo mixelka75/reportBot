@@ -56,8 +56,12 @@ class DailyInventoryV2CRUD:
                 for entry in inventory_data.inventory_data
             ]
 
-            # Создаем запись
-            date = datetime.now(ZoneInfo("Europe/Moscow"))
+
+            # Объединяем дату и время от пользователя
+            date = datetime.combine(
+                inventory_data.report_date,
+                inventory_data.report_time
+            )
 
             db_inventory = DailyInventoryV2(
                 location=inventory_data.location,

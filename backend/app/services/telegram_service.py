@@ -527,53 +527,40 @@ class TelegramService:
 
         return message
 
-    def _format_daily_inventory_message(self, data: Dict[str, Any]) -> str:
-        """Форматирует сообщение старой инвентаризации (для обратной совместимости)"""
-        shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
-
-        message = f"""📦 <b>ЕЖЕДНЕВНАЯ ИНВЕНТАРИЗАЦИЯ</b> {shift_emoji}
-
-📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
-📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Время проведения:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
-
-🥤 <b>НАПИТКИ:</b>
-- IL Primo стекло: <b>{data.get('il_primo_steklo', 0)} шт</b>
-- Вода горная: <b>{data.get('voda_gornaya', 0)} шт</b>
-- Добрый сок ПЭТ: <b>{data.get('dobri_sok_pet', 0)} шт</b>
-- Кураговый компот: <b>{data.get('kuragovi_kompot', 0)} шт</b>
-- Напитки ЖБ: <b>{data.get('napitki_jb', 0)} шт</b>
-- Энергетики: <b>{data.get('energetiky', 0)} шт</b>
-- Колд брю: <b>{data.get('kold_bru', 0)} шт</b>
-- Кинза напитки: <b>{data.get('kinza_napitky', 0)} шт</b>
-- Палли: <b>{data.get('palli', 0)} шт</b>
-
-🍽️ <b>ЕДА И ИНГРЕДИЕНТЫ:</b>
-- Барбекю дип: <b>{data.get('barbeku_dip', 0)} шт</b>
-- Булка на шаурму: <b>{data.get('bulka_na_shaurmu', 0)} шт</b>
-- Лаваш: <b>{data.get('lavash', 0)} шт</b>
-- Лепешки: <b>{data.get('lepeshki', 0)} шт</b>
-- Кетчуп дип: <b>{data.get('ketchup_dip', 0)} шт</b>
-- Сырный соус дип: <b>{data.get('sirny_sous_dip', 0)} шт</b>
-- Курица жареная: <b>{data.get('kuriza_jareny', 0)} кг</b>
-- Курица сырая: <b>{data.get('kuriza_siraya', 0)} кг</b>
-"""
-
-        return message
-
     def _format_daily_inventory_v2_message(self, data: Dict[str, Any]) -> str:
         """НОВЫЙ МЕТОД: Форматирует сообщение новой инвентаризации v2"""
         shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
 
+        # ИЗМЕНЕНО: Используем дату из данных пользователя вместо текущего времени
+        user_date = data.get('date')
+        if user_date:
+            # Если date - это datetime объект
+            if hasattr(user_date, 'strftime'):
+                formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
+            # Если date - это строка
+            elif isinstance(user_date, str):
+                try:
+                    # Пытаемся парсить ISO формат
+
+                    parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
+                    formatted_date = parsed_date.strftime('%d.%m.%Y %H:%M')
+                except:
+                    formatted_date = user_date
+            else:
+                formatted_date = str(user_date)
+        else:
+            # Fallback на текущее время
+            formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime(
+                '%d.%m.%Y %H:%M')
+
         message = f"""📦 <b>ЕЖЕДНЕВНАЯ ИНВЕНТАРИЗАЦИЯ</b> {shift_emoji}
 
-📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
-📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Время проведения:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+    📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+    👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
+    📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
+    🕐 <b>Время проведения:</b> {formatted_date}
 
-"""
+    """
 
         # Получаем данные инвентаризации
         inventory_data = data.get('inventory_data', [])
