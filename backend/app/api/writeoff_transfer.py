@@ -67,6 +67,9 @@ date
 Пример: [{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]""",
             example='[{"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"}]'
         ),
+        report_date: Optional[str] = Form(None, description="Дата отчета (YYYY-MM-DD) - опционально"),
+        report_time: Optional[str] = Form(None, description="Время отчета (HH:MM) - опционально"),
+
         shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
         writeoff_or_transfer: str = Form(...),
@@ -168,14 +171,19 @@ date
                 detail="Должна быть указана хотя бы одна запись в списаниях или перемещениях"
             )
 
+
         # Создаем акт
         report_data = WriteoffTransferCreate(
             location=location,
             writeoffs=writeoffs_list,
             transfers=transfers_list,
             cashier_name=cashier_name,
-            shift_type=shift_type
+            shift_type=shift_type,
+            report_date=report_date,
+            report_time=report_time,
         )
+
+
 
         return await writeoff_transfer_crud.create_writeoff_transfer(db, report_data, writeoff_or_transfer)
 

@@ -27,7 +27,8 @@ export const WriteOffForm = ({
     shift: '',
     cashierName: '',
     writeoff_or_transfer: 'Списания',
-    date: getCurrentMSKTime(),
+    report_date: new Date().toISOString().split('T')[0], // Текущая дата в формате YYYY-MM-DD
+    report_time: new Date().toTimeString().slice(0,5),
     writeOffs: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
   });
 
@@ -48,7 +49,7 @@ export const WriteOffForm = ({
   const autoSaveFunction = useCallback(async (data) => {
     const hasWriteOffs = data.writeOffs.some(item => item.name || item.weight || item.unit || item.reason);
 
-    if (data.location || hasWriteOffs) {
+    if (data.location || hasWriteOffs || data.report_date || data.report_time) {
       await saveDraft('writeoff', data);
     }
   }, [saveDraft]);
@@ -100,7 +101,8 @@ export const WriteOffForm = ({
     if (!formData.location) errors.location = 'Выберите локацию';
     if (!formData.shift) errors.shift = 'Выберите смену';
     if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира';
-    if (!formData.date) errors.date = 'Выберите дату';
+    if (!formData.report_date) errors.report_date = 'Выберите дату отчета';
+    if (!formData.report_time) errors.report_time = 'Выберите время отчета';
 
     // Проверяем, что есть хотя бы одна заполненная позиция
     const hasWriteOffs = formData.writeOffs.some(item => item.name && item.weight && item.unit && item.reason);
@@ -125,6 +127,8 @@ export const WriteOffForm = ({
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
       apiFormData.append('writeoff_or_transfer', formData.writeoff_or_transfer);
+      apiFormData.append('report_date', formData.report_date);
+      apiFormData.append('report_time', formData.report_time);
 
       // Списания
       const writeoffs = formData.writeOffs
@@ -255,15 +259,38 @@ export const WriteOffForm = ({
             )}
           </div>
 
-          {/* Date & Time */}
-          <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
-            <input
-              type="text"
-              value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Дата */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Дата отчета
+              </label>
+              <input
+                type="date"
+                value={formData.report_date}
+                onChange={(e) => setFormData(prev => ({...prev, report_date: e.target.value}))}
+                disabled={isLoading}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50"
+                placeholder="Оставьте пустым для автоматической даты"
+              />
+              <p className="text-xs text-gray-500 mt-1">Опционально - если не указано, будет текущая дата</p>
+            </div>
+
+            {/* Время */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🕒 Время отчета
+              </label>
+              <input
+                type="time"
+                value={formData.report_time}
+                onChange={(e) => setFormData(prev => ({...prev, report_time: e.target.value}))}
+                disabled={isLoading}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none disabled:opacity-50"
+                placeholder="Оставьте пустым для автоматического времени"
+              />
+              <p className="text-xs text-gray-500 mt-1">Опционально - если не указано, будет текущее время</p>
+            </div>
           </div>
 
           {/* Write-offs Section */}

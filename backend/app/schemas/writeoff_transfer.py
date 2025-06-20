@@ -1,6 +1,6 @@
-from datetime import datetime, date
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field
+from datetime import datetime, date, time
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field, validator
 
 
 class WriteoffEntry(BaseModel):
@@ -48,6 +48,9 @@ class WriteoffTransferCreate(BaseModel):
     shift_type: str = Field(description="Тип смены")
     cashier_name: str = Field(description="ФИО кассира")
 
+    report_date: Optional[date] = Field(None, description="Дата отчета (опционально)")
+    report_time: Optional[time] = Field(None, description="Время отчета (опционально)")
+
 
     writeoffs: List[WriteoffEntry] = Field(
         default_factory=list,
@@ -74,6 +77,13 @@ class WriteoffTransferCreate(BaseModel):
                 ]
             }
         }
+
+    @validator('report_time')
+    def validate_time_format(cls, v):
+        """Валидация времени"""
+        if v is not None and not isinstance(v, time):
+            raise ValueError('Время должно быть в формате HH:MM')
+        return v
 
 
 class WriteoffTransferResponse(BaseModel):

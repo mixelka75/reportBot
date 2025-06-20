@@ -555,10 +555,10 @@ class TelegramService:
 
         message = f"""📦 <b>ЕЖЕДНЕВНАЯ ИНВЕНТАРИЗАЦИЯ</b> {shift_emoji}
 
-    📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-    👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
-    📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-    🕐 <b>Время проведения:</b> {formatted_date}
+📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
+📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
+🕐 <b>Время проведения:</b> {formatted_date}
 
     """
 
@@ -657,13 +657,34 @@ class TelegramService:
 
     def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение акта списания/перемещения"""
+
+        user_date = data.get('date')
+        if user_date:
+            # Если date - это datetime объект
+            if hasattr(user_date, 'strftime'):
+                formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
+            # Если date - это строка
+            elif isinstance(user_date, str):
+                try:
+                    # Пытаемся парсить ISO формат
+                    parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
+                    formatted_date = parsed_date.strftime('%d.%m.%Y %H:%M')
+                except:
+                    formatted_date = user_date
+            else:
+                formatted_date = str(user_date)
+        else:
+            # Fallback на текущее время если дата не указана
+            formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime(
+                '%d.%m.%Y %H:%M')
+
         message = f"""📋 <b>АКТ {data.get('writeoff_or_transfer')}</b>
+        
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-📆 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
-
+📆 <b>Дата:</b> {formatted_date}
 """
 
         # Списания

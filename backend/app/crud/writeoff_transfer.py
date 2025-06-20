@@ -46,6 +46,14 @@ class WriteoffTransferCRUD:
                     'reason': transfer.reason
                 })
 
+            if report_data.report_date is None or report_data.report_time is None:
+                report_datetime = None
+            else:
+                report_datetime = datetime.combine(
+                    report_data.report_date,
+                    report_data.report_time
+                )
+
             # Создаем запись в БД
             db_report = WriteoffTransfer(
                 location=report_data.location,
@@ -53,6 +61,7 @@ class WriteoffTransferCRUD:
                 transfers=transfers_dict,
                 shift_type=report_data.shift_type,
                 cashier_name=report_data.cashier_name,
+                date=report_datetime
             )
 
             db.add(db_report)
@@ -105,7 +114,8 @@ class WriteoffTransferCRUD:
                         'shift_type': db_report.shift_type,
                         'writeoffs': db_report.writeoffs,
                         'transfers': db_report.transfers,
-                        "writeoff_or_transfer": writeoff_or_transfer
+                        "writeoff_or_transfer": writeoff_or_transfer,
+                        "date": db_report.date
                     }
 
                     # Отправляем в Telegram (с таймаутом)
