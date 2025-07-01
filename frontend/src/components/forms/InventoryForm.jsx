@@ -4,7 +4,6 @@ import { MemoizedInput } from '../common/MemoizedInput';
 import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
 import { useAutoSave } from '../../hooks/useAutoSave';
-import { useFormData } from '../../hooks/useFormData';
 import { getCurrentMSKTime } from '../../utils/dateUtils';
 
 export const InventoryForm = ({
@@ -35,7 +34,6 @@ export const InventoryForm = ({
   const [availableItems, setAvailableItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
 
   // Загрузка товаров из API
   useEffect(() => {
@@ -103,9 +101,15 @@ export const InventoryForm = ({
     }
   }, [validationErrors, setValidationErrors]);
 
-  // Обработка изменения количества товара
-  const handleQuantityChange = useCallback((itemId, quantity) => {
-    const numQuantity = Math.max(0, parseInt(quantity) || 0);
+  // Упрощенная обработка изменения количества товара
+  const handleQuantityChange = useCallback((itemId, inputValue) => {
+    // Валидация: разрешаем пустую строку или только числа
+    if (inputValue !== '' && !/^\d*$/.test(inputValue)) {
+      return; // Игнорируем некорректный ввод
+    }
+
+    // Преобразование в число (пустая строка = 0)
+    const numQuantity = inputValue === '' ? 0 : Math.max(0, parseInt(inputValue) || 0);
 
     setFormData(prev => ({
       ...prev,
@@ -378,12 +382,14 @@ export const InventoryForm = ({
                             <div className="flex-shrink-0">
                               <MemoizedInput
                                 type="text"
-                                value={quantity}
-                                onChange={(e) => handleNumberInput(e, (newValue) =>
-                                  handleQuantityChange(item.id, newValue)
-                                )}
+                                value={quantity === 0 ? '' : quantity.toString()}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                 disabled={isLoading}
-                                className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
+                                className={`w-20 p-2 border rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors ${
+                                  quantity > 0 
+                                    ? 'bg-green-50 border-green-300 text-green-800' 
+                                    : 'bg-white border-gray-300'
+                                }`}
                                 placeholder="0"
                                 name={`item-${item.id}`}
                                 id={`item-${item.id}`}
